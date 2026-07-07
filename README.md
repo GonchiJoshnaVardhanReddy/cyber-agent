@@ -60,7 +60,12 @@ All while asking for your approval before anything dangerous, refusing anything 
 ```bash
 git clone <your-repo> cyber-agent
 cd cyber-agent
+for win
 pip install -e ".[all]"   # core + Telegram + Discord deps
+for linux
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e ".[all]"
 ```
 
 ### 2. Configure
