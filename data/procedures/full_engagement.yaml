@@ -1,0 +1,61 @@
+# Procedural playbook: full engagement lifecycle
+name: full-engagement
+description: >
+  End-to-end engagement workflow: plan, recon, enumerate, identify, validate,
+  report. Use this as a template for a fresh engagement; adapt the tasks to
+  the specific objective.
+category: general
+
+prerequisites:
+  - "Signed Rules of Engagement on file"
+  - "Scope clearly defined"
+
+outputs:
+  - "Engagement plan created and tracked"
+  - "All findings recorded with evidence"
+  - "Markdown report generated in workspace/reports/"
+
+steps:
+  - id: 1
+    description: "Create an engagement plan with 5-10 tasks covering the objective"
+    tool: plan_create
+
+  - id: 2
+    description: "Phase 1: Passive recon (DNS, WHOIS, certificate transparency)"
+    tool: recon_dns
+    depends_on: [1]
+
+  - id: 3
+    description: "Phase 2: Active recon (nmap top ports, then version detection)"
+    tool: recon_nmap
+    depends_on: [2]
+
+  - id: 4
+    description: "Phase 3: Web application testing (crawl, test for OWASP Top 10)"
+    tool: web_crawl
+    depends_on: [3]
+
+  - id: 5
+    description: "Phase 4: Vulnerability identification — research discovered versions"
+    tool: cve_search
+    depends_on: [3, 4]
+
+  - id: 6
+    description: "Phase 5: Validate findings (re-test, capture evidence)"
+    tool: http_request
+    depends_on: [5]
+
+  - id: 7
+    description: "Phase 6: Record all findings with evidence in World Memory"
+    tool: memory_record_finding
+    depends_on: [6]
+
+  - id: 8
+    description: "Phase 7: Record lessons learned in Experience Memory"
+    tool: memory_record_lesson
+    depends_on: [7]
+
+  - id: 9
+    description: "Phase 8: Generate the final pentest report"
+    tool: report_generate
+    depends_on: [7, 8]

@@ -1,0 +1,88 @@
+# Cyber Agent Configuration
+# Copy to config.yaml and edit. Environment variables override these values.
+
+agent:
+  # LLM provider: openai | anthropic | ollama | openrouter
+  provider: openai
+  model: gpt-4o
+  # Max tool-call iterations per turn (Hermes uses 90; pentest needs more room)
+  max_iterations: 50
+  # Temperature for reasoning (lower = more deterministic)
+  temperature: 0.2
+  # Max tokens per response
+  max_tokens: 4096
+
+# Authorization — REQUIRED for every engagement.
+# The agent refuses to act without a signed RULES_OF_ENGAGEMENT file.
+authorization:
+  # Path to the signed RoE file (copy examples/rules_of_engagement.template.md, fill, sign)
+  roe_path: ./RULES_OF_ENGAGEMENT.md
+  # If true, agent refuses to run without RoE. Set false ONLY for dry-run/testing.
+  require_roe: true
+  # Hard blocklist of targets the agent will NEVER touch, regardless of RoE
+  # (critical infrastructure, .gov, .mil, etc. Add your own.)
+  hard_blocklist:
+    - ".gov"
+    - ".mil"
+    - "127.0.0.1"  # remove if you're testing locally on purpose
+    - "localhost"
+    - "0.0.0.0"
+
+# Approval policy for dangerous operations
+approval:
+  # always: prompt user before every dangerous tool call
+  # once_per_session: approve once, remember for the session
+  # auto: NO approval (DANGEROUS — only for fully autonomous runs in isolated envs)
+  policy: always
+  # Tools that ALWAYS require approval regardless of policy
+  always_require_approval:
+    - shell_exec
+    - code_execute
+    - file_write
+    - recon_nmap
+  # Timeout (seconds) for approval prompts. Default-deny on timeout.
+  timeout: 120
+
+# Memory systems
+memory:
+  # SQLite database path (episodic, semantic, experience, audit)
+  db_path: ./data/agent.db
+  # Procedural memory: directory of YAML playbooks
+  procedures_dir: ./data/procedures
+  # World memory backend: networkx (default, in-memory) | neo4j (TODO v2)
+  world_backend: networkx
+  # Neo4j config (only if world_backend=neo4j)
+  neo4j:
+    uri: bolt://localhost:7687
+    user: neo4j
+    password: ""
+
+# Audit log
+audit:
+  # All tool calls + decisions logged here
+  log_path: ./data/audit.log
+  # Also log to SQLite for queryability
+  log_to_db: true
+
+# Surfaces (which interfaces to enable)
+surfaces:
+  cli:
+    enabled: true
+  telegram:
+    enabled: false
+    # token from env: TELEGRAM_BOT_TOKEN
+    # Allowed user IDs (comma-separated in env: TELEGRAM_ALLOWED_USERS)
+  discord:
+    enabled: false
+    # token from env: DISCORD_BOT_TOKEN
+
+# Tool configuration
+tools:
+  # Maximum HTTP response size to read (bytes) — prevents OOM from huge responses
+  http_max_response_size: 10485760  # 10 MB
+  # Default timeout for HTTP requests (seconds)
+  http_timeout: 30
+  # Code execution sandbox: subprocess | docker (TODO v2)
+  code_exec_sandbox: subprocess
+  # Code execution timeout (seconds)
+  code_exec_timeout: 30

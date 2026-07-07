@@ -1,0 +1,81 @@
+# RULES OF ENGAGEMENT (RoE)
+
+**This file MUST be signed before the agent will execute any action.**
+The agent checks for a valid, signed RoE at startup and refuses to act without one.
+
+---
+
+## Engagement Identification
+
+- **Engagement ID:** ENG-2026-001
+- **Engagement Type:** [Bug Bounty | Red Team | Penetration Test | Security Research]
+- **Client / Program Name:** _____________________________
+- **Program URL:** _____________________________
+- **Engagement Start:** YYYY-MM-DD HH:MM (UTC)
+- **Engagement End:**   YYYY-MM-DD HH:MM (UTC)
+- **Lead Operator:** _____________________________
+- **Authorization Reference:** (e.g., Bug Bounty program URL, signed contract #, written authorization)
+
+---
+
+## Authorized Scope
+
+List EVERY target (host, IP range, URL, API endpoint, cloud account) the agent is permitted
+to touch. Targets NOT on this list are OFF-LIMITS — the agent will refuse to act against them.
+
+### In-Scope Targets
+- `example.com`
+- `*.example.com`
+- `203.0.113.0/24`
+- `https://api.example.com/v1/*`
+
+### Out-of-Scope (explicitly excluded)
+- `payments.example.com`  # third-party hosted, not in scope
+- `internal.example.com`  # internal-only, not part of program
+
+### Allowed Activity Types
+- [x] Passive reconnaissance (DNS, WHOIS, certificate transparency)
+- [x] Active reconnaissance (port scanning, service fingerprinting)
+- [x] Web application testing (OWASP Top 10)
+- [x] API security testing
+- [ ] Network exploitation (gaining shell access)
+- [ ] Privilege escalation
+- [ ] Credential reuse across services
+- [ ] Social engineering
+- [ ] Physical security testing
+- [ ] Denial of Service (DoS / DDoS)
+
+### Prohibited Actions
+- Any action causing service disruption or data loss
+- Accessing or storing production user data
+- Modifying data in production systems
+- Use of automated exploit frameworks (Metasploit, etc.) without explicit approval
+- Attacks against authentication infrastructure (rate-limit brute force, etc.) without approval
+
+---
+
+## Operator Authorization
+
+I, the undersigned, certify that:
+
+1. I am authorized to conduct this engagement by the asset owner or an authorized bug
+   bounty program.
+2. The scope listed above is accurate and complete.
+3. I will comply with all applicable laws (Computer Fraud and Abuse Act, GDPR, etc.)
+   and the program's rules.
+4. I am solely responsible for the agent's actions performed under this RoE.
+5. I will immediately stop the engagement if the agent's behavior deviates from the scope.
+6. I will retain all evidence and produce a report upon completion.
+
+**Signed:** _____________________________
+**Date:** YYYY-MM-DD
+**Signature Hash:** (the agent will compute SHA-256 of the signed file and pin it)
+
+---
+
+## Agent Acknowledgment (filled by the agent at startup)
+
+- **RoE file SHA-256:** (auto-computed on load)
+- **Loaded at:** (timestamp)
+- **Scope rules enforced:** YES
+- **Audit log active:** YES

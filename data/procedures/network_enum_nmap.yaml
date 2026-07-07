@@ -1,0 +1,53 @@
+# Procedural playbook: network enumeration via nmap
+name: network-enum-nmap
+description: >
+  Standard nmap-based network enumeration workflow. Starts with a fast top-ports
+  scan, then escalates to version detection on discovered ports. Records all
+  services to World Memory.
+category: recon
+
+prerequisites:
+  - "Target host or IP range in scope per RoE"
+  - "Operator has authorized active recon (nmap)"
+
+outputs:
+  - "List of open ports with service versions"
+  - "World Memory populated with host and service nodes"
+
+steps:
+  - id: 1
+    description: "Quick scan of top 100 ports to find the surface"
+    tool: recon_nmap
+    args:
+      scan_type: "--top-ports 100"
+      timeout: 60
+
+  - id: 2
+    description: "If ports found, run version detection (-sV) on those ports"
+    tool: recon_nmap
+    args:
+      scan_type: "-sV"
+      ports: "{discovered_ports}"
+    condition: "open_ports_found"
+
+  - id: 3
+    description: "Record host in World Memory"
+    tool: memory_record_host
+
+  - id: 4
+    description: "Record each discovered service in World Memory"
+    tool: memory_record_service
+    loop: "discovered_services"
+
+  - id: 5
+    description: "Form hypotheses about likely vulnerabilities based on versions"
+    tool: memory_add_hypothesis
+
+  - id: 6
+    description: "For each hypothesis, look up relevant CVEs"
+    tool: cve_search
+    loop: "hypotheses_with_versions"
+
+  - id: 7
+    description: "Record findings for any CVEs with public exploits"
+    tool: memory_record_finding

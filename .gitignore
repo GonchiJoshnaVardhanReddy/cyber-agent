@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+*.egg
+.pytest_cache/
+
+# Env
+.env
+.venv/
+venv/
+
+# Data (auto-generated)
+data/agent.db
+data/agent.db-wal
+data/agent.db-shm
+data/audit.log
+workspace/
+reports/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store

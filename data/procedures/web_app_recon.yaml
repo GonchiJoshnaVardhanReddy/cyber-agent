@@ -1,0 +1,54 @@
+# Procedural playbook: web application reconnaissance
+# Used by the agent's procedural memory system. The agent loads these as
+# reference when planning web-app testing.
+
+name: web-app-recon
+description: >
+  Standard methodology for reconaissance against a web application target.
+  Starts with passive recon, then moves to active enumeration. Records all
+  findings to World Memory as they are discovered.
+category: web
+
+prerequisites:
+  - "Target hostname in scope per RoE"
+  - "Operator has authorized active recon"
+
+outputs:
+  - "List of discovered subdomains"
+  - "Service version information for HTTP/HTTPS"
+  - "Map of crawled URLs and forms"
+  - "World Memory populated with hosts, services, and findings"
+
+steps:
+  - id: 1
+    description: "Passive DNS recon — resolve A, AAAA, MX, NS, TXT records"
+    tool: recon_dns
+    target_arg: target
+    record_to: memory_record_host
+
+  - id: 2
+    description: "WHOIS lookup for registration and contact info"
+    tool: recon_whois
+    record_to: working_memory
+
+  - id: 3
+    description: "Crawl the website to map the surface (max 15 pages, depth 2)"
+    tool: web_crawl
+    record_to: memory_record_service
+
+  - id: 4
+    description: "Send a baseline GET request to the homepage to capture headers and tech"
+    tool: http_request
+    record_to: working_memory
+
+  - id: 5
+    description: "Record all discovered services (HTTP/HTTPS on 80/443) in World Memory"
+    tool: memory_record_service
+
+  - id: 6
+    description: "Form a hypothesis about the tech stack based on headers"
+    tool: memory_add_hypothesis
+
+  - id: 7
+    description: "Generate a summary of what was discovered"
+    tool: plan_update_task

@@ -1,0 +1,87 @@
+[
+  {
+    "type": "cwe",
+    "key": "CWE-79",
+    "source": "MITRE",
+    "value": {
+      "name": "Cross-site Scripting (XSS)",
+      "description": "The software does not neutralize or incorrectly neutralizes user-controllable input before it is placed in output that is used as a web page that is served to other users.",
+      "mitigation": "Output encoding, input validation, Content Security Policy."
+    }
+  },
+  {
+    "type": "cwe",
+    "key": "CWE-89",
+    "source": "MITRE",
+    "value": {
+      "name": "SQL Injection",
+      "description": "The software constructs all or part of an SQL command using externally-influenced input from an upstream component, but it does not neutralize or incorrectly neutralizes special elements that could modify the intended SQL command."
+    }
+  },
+  {
+    "type": "cwe",
+    "key": "CWE-22",
+    "source": "MITRE",
+    "value": {
+      "name": "Path Traversal",
+      "description": "The software uses external input to construct a pathname that is intended to identify a file or directory that is located underneath a restricted parent directory, but the software does not properly neutralize special elements within the pathname."
+    }
+  },
+  {
+    "type": "cwe",
+    "key": "CWE-352",
+    "source": "MITRE",
+    "value": {
+      "name": "Cross-Site Request Forgery (CSRF)",
+      "description": "The web application does not, or can not, sufficiently verify whether a well-formed, valid, consistent request was intentionally provided by the user who submitted the request."
+    }
+  },
+  {
+    "type": "cwe",
+    "key": "CWE-287",
+    "source": "MITRE",
+    "value": {
+      "name": "Improper Authentication",
+      "description": "When an actor claims to have a given identity, the software does not prove or insufficiently proves that the claim is correct."
+    }
+  },
+  {
+    "type": "cwe",
+    "key": "CWE-798",
+    "source": "MITRE",
+    "value": {
+      "name": "Use of Hard-coded Credentials",
+      "description": "The software contains hard-coded credentials, such as a password or cryptographic key, which it uses for its own inbound authentication, outbound communication to external components, or encryption of internal data."
+    }
+  },
+  {
+    "type": "attack",
+    "key": "T1190",
+    "source": "MITRE ATT&CK",
+    "value": {
+      "name": "Exploit Public-Facing Application",
+      "tactic": "Initial Access",
+      "description": "Adversaries may attempt to exploit a weakness in an Internet-facing host or system to initially access a network."
+    }
+  },
+  {
+    "type": "attack",
+    "key": "T1595",
+    "source": "MITRE ATT&CK",
+    "value": {
+      "name": "Active Scanning",
+      "tactic": "Reconnaissance",
+      "description": "Adversaries may execute active reconnaissance scans to gather information about hosts and services on a target network."
+    }
+  },
+  {
+    "type": "attack",
+    "key": "T1580",
+    "source": "MITRE ATT&CK",
+    "value": {
+      "name": "Cloud Infrastructure Discovery",
+      "tactic": "Discovery",
+      "description": "Adversaries may discover cloud infrastructure (e.g., AWS, Azure) and the services running on it."
+    }
+  }
+]
