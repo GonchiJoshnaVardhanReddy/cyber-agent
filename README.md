@@ -1,348 +1,371 @@
-<p align="center">
-  <img src="assets/logo.png" alt="Cyber Agent Logo" width="280">
-</p>
+# Cyber Agent - Two-Mode Security Testing Platform
 
-<h1 align="center">🦾 Cyber Agent</h1>
+An autonomous cybersecurity agent with **dual-mode operation**:
+1. **Normal Mode** - General assistant for file operations, web search, code execution
+2. **Hack Mode** (`/hack`) - Specialized offensive security testing with structured methodology
 
-<p align="center">
-  <em>An autonomous offensive security agent that thinks, plans, and executes — for <strong>authorized</strong> work only.</em>
-</p>
+## 🎯 Features
 
-<p align="center">
-  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.11+-blue.svg" alt="Python 3.11+"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License: MIT"></a>
-  <img src="https://img.shields.io/badge/tests-5%2F5-brightgreen.svg" alt="Tests: 5/5">
-</p>
+### Dual-Mode Operation
+- **Normal Mode**: Download files, write code, manage files, search the web, execute commands
+- **Hack Mode** (`/hack`): Full offensive security workflow with:
+  - Target & scope definition
+  - Multi-stage reconnaissance
+  - Hypothesis-driven testing
+  - Automated vulnerability discovery
+  - Graph-based memory mapping
+  - Professional reporting
+
+### LLM Provider Support
+- **Ollama** (local, free) - `llama3.1`, `mistral`, etc.
+- **OpenAI** - GPT-4o, GPT-4 Turbo
+- **Anthropic** - Claude 3.5 Sonnet
+- **OpenRouter** - Access to 100+ models
+- **Groq** - Fast inference
+- **Together AI** - Open-source models
+- **vLLM** - Self-hosted deployment
+
+### Offensive Security Tools (70+)
+#### Network Scanning
+- Nmap (advanced), Masscan, RustScan, Naabu
+
+#### OSINT & Reconnaissance  
+- Amass, theHarvester, Shodan, Censys
+- WHOIS, DNS enumeration
+- Subdomain enumeration (Subfinder, Assetfinder)
+
+#### Web Discovery
+- ffuf, Feroxbuster, Gobuster, Dirsearch
+- httpx, WhatWeb, Wappalyzer
+
+#### Vulnerability Scanning
+- Nuclei, Nikto, OWASP ZAP
+- Burp Suite integration
+
+#### Web Vulnerability Testing
+- XSStrike, DalFox (XSS)
+- sqlmap (SQL injection)
+- Arjun (parameter discovery)
+
+#### SSL/TLS Testing
+- testssl.sh, SSLyze
+
+### Memory Systems (6 Types)
+1. **Working Memory** - Current task state & plan
+2. **World Memory** - Graph-based target mapping (NetworkX/Neo4j)
+3. **Semantic Memory** - Facts & knowledge
+4. **Procedural Memory** - Playbooks & methodologies
+5. **Episodic Memory** - Engagement history
+6. **Experience Memory** - Lessons learned
+
+### Safety & Compliance
+- **Rules of Engagement** enforcement
+- **Scope checking** on every tool call
+- **Human-in-the-loop** approval system
+- **Audit logging** for all actions
+- **Hard blocklists** (.gov, .mil, localhost)
 
 ---
 
-Tired of running `nmap`, copying output into ChatGPT, asking "what does this mean?", running another tool, pasting that back... yeah, me too. Cyber Agent closes the loop. You give it an objective and a signed Rules of Engagement; it does the recon, reasoning, and reporting itself, using whatever LLM you point it at.
+## 🚀 Quick Start
 
----
-
-## 🧠 What it actually does
-
-Give it something like:
-
-> *"Recon scanme.nmap.org — find open ports, fingerprint services, look up any CVEs for the versions you find, and write me a report."*
-
-…and the agent will:
-
-1. 📋 Build a plan (`plan_create`)
-2. 🔍 Run passive recon — DNS, WHOIS (`recon_dns`, `recon_whois`)
-3. 🛰️ Run active recon — nmap with version detection (`recon_nmap`)
-4. 🧩 Record every host, service, and finding in its world model (`memory_record_*`)
-5. 🐛 Look up CVEs for the versions it found (`cve_search`)
-6. 📝 Generate a Markdown pentest report (`report_generate`)
-
-All while asking for your approval before anything dangerous, refusing anything out of scope, and logging every step to an audit trail.
-
----
-
-## ✨ Features at a glance
-
-- **ReAct-style loop** — LLM proposes tool calls, agent runs them, results feed back, repeat
-- **20+ tools** — nmap, HTTP, crawl, Python/Bash/PowerShell exec, web search, CVE lookup, memory ops, planning, reporting
-- **6 memory systems** — Working (RAM), World (graph), Semantic (facts), Procedural (YAML playbooks), Episodic (history), Experience (lessons learned)
-- **Provider-agnostic** — OpenAI, Anthropic, Ollama, OpenRouter, vLLM — switch with one env var
-- **3 surfaces** — CLI REPL, Telegram bot (with inline approval buttons), Discord bot (reaction-based approvals)
-- **Rules of Engagement enforced** — refuses to act without a signed RoE, scope-checks every tool call
-- **Sandboxed file ops** — agent can only touch `./workspace/` (path traversal blocked)
-- **Audit log** — every tool call, scope violation, and approval decision logged to file + SQLite
-- **5/5 tests passing** 🟢
-
----
-
-## 🚀 Quick start
-
-### 1. Install
+### 1. Installation
 
 ```bash
-git clone <your-repo> cyber-agent
+git clone <repository-url>
 cd cyber-agent
-for win
-pip install -e ".[all]"   # core + Telegram + Discord deps
-for linux
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e ".[all]"
+pip install -e .
 ```
 
-### 2. Configure
+### 2. Configuration
 
-```bash
-cp .env.example .env
-# Edit .env — set your API key and provider
-```
-
-Pick your LLM in `.env`:
-
-```bash
-# OpenAI (default)
-CYBER_AGENT_PROVIDER=openai
-OPENAI_API_KEY=sk-...
-CYBER_AGENT_MODEL=gpt-4o
-
-# Anthropic
-CYBER_AGENT_PROVIDER=anthropic
-ANTHROPIC_API_KEY=sk-ant-...
-ANTHROPIC_MODEL=claude-3-5-sonnet-20241022
-
-# Local Ollama (free, no API key)
-CYBER_AGENT_PROVIDER=ollama
-OPENAI_BASE_URL=http://localhost:11434/v1
-OPENAI_API_KEY=ollama
-CYBER_AGENT_MODEL=llama3.1:70b
-```
+Copy the example config and environment files:
 
 ```bash
 cp config.yaml.example config.yaml
-# Review — defaults are usually fine
+cp .env.example .env
 ```
 
-### 3. Sign your Rules of Engagement
+Edit `.env` to set your LLM provider:
 
-**The agent will refuse to run without this.** That's the point.
+```bash
+# For Ollama (local, no API key needed)
+CYBER_AGENT_PROVIDER=ollama
+CYBER_AGENT_MODEL=llama3.1:8b
+
+# OR for OpenAI
+CYBER_AGENT_PROVIDER=openai
+OPENAI_API_KEY=sk-your-key-here
+CYBER_AGENT_MODEL=gpt-4o
+
+# OR for Anthropic
+CYBER_AGENT_PROVIDER=anthropic
+ANTHROPIC_API_KEY=sk-ant-your-key-here
+```
+
+Optional API keys for enhanced recon:
+```bash
+SHODAN_API_KEY=your_shodan_key
+TAVILY_API_KEY=your_tavily_key  # Web search
+```
+
+### 3. Create Rules of Engagement
 
 ```bash
 cp RULES_OF_ENGAGEMENT.md.template RULES_OF_ENGAGEMENT.md
+# Edit with your engagement details, scope, and dates
 ```
 
-Edit `RULES_OF_ENGAGEMENT.md` — fill in:
-- Engagement ID, type, client, dates
-- **In-scope targets** (hostnames, IPs, CIDRs, URL prefixes)
-- Out-of-scope targets
-- Allowed activity types
-- Sign and date it
-
-Every tool that takes a target is checked against this file. Out-of-scope = refused + logged.
-
-### 4. Run
+### 4. Run the Agent
 
 ```bash
-# Interactive REPL
-cyber-agent
-
-# Single objective, then exit
-cyber-agent --run "Recon scanme.nmap.org and report open ports"
-
-# Show status
-cyber-agent --status
-
-# Disable approval prompts (DANGEROUS — only in isolated envs)
-cyber-agent --no-approval --run "..."
+python -m cli.main
 ```
 
 ---
 
-## 🗂️ The 6 memory systems
+## 📖 Usage
 
-The agent doesn't just remember the conversation — it has six specialized memory types:
+### Normal Mode (Default)
 
-| Memory | What it stores | Where |
-|---|---|---|
-| **Working** | Current objectives, observations, hypotheses | RAM |
-| **World** | Live graph of the target — hosts, services, findings, attack paths | NetworkX (Neo4j-ready) |
-| **Semantic** | Cybersecurity facts — CWEs, MITRE ATT&CK techniques | SQLite |
-| **Procedural** | Reusable playbooks (YAML files) | `data/procedures/` |
-| **Episodic** | Full engagement history | SQLite |
-| **Experience** | Lessons learned — what worked, what didn't | SQLite |
+The agent acts as a general security assistant:
 
-The agent accesses these via tools (`memory_record_finding`, `memory_lookup_lesson`, etc.). Before trying a technique, it can check `memory_lookup_lesson` to see if it's worked before. After a finding, `memory_record_finding` persists it with evidence.
+```
+>>> Download the latest OWASP Top 10 PDF
+>>> Write a Python script to parse nmap output
+>>> Search for recent CVEs in Apache servers
+>>> Create a report template in the workspace
+```
+
+### Hack Mode (Offensive Security)
+
+Enter hack mode with `/hack` command:
+
+```
+>>> /hack
+Target: example.com
+Scope: example.com, *.example.com
+Excluded: dev.example.com, staging.example.com
+Engagement Type: bug_bounty (or pentest/red_team)
+
+Starting hack mode...
+```
+
+#### Hack Mode Workflow
+
+**Stage 1: Reconnaissance**
+```
+>>> Start passive recon on example.com
+>>> Run Amass for subdomain enumeration
+>>> Search Shodan for exposed services
+>>> Perform DNS enumeration
+```
+
+**Stage 2: Hypothesis Generation**
+The LLM analyzes recon data and generates hypotheses:
+- "Subdomain admin.example.com may have weak authentication"
+- "Port 8080 running Jetty could be vulnerable to CVE-2024-1234"
+
+**Stage 3: Active Testing**
+```
+>>> Test hypothesis #1 with http_request
+>>> Run Nuclei scans on discovered hosts
+>>> Perform directory brute-forcing with ffuf
+>>> Check for SQL injection with sqlmap
+```
+
+**Stage 4: Reporting**
+```
+>>> Generate findings report
+>>> Export attack path graph
+>>> Create remediation recommendations
+```
+
+Exit hack mode:
+```
+>>> /exit_hack
+```
 
 ---
 
-## 🔧 Tools (20+)
+## 🛠️ Tool Categories
 
-| Category | Tools |
-|---|---|
-| **Recon** | `recon_nmap`, `recon_dns`, `recon_whois` |
-| **Web** | `http_request`, `web_crawl` |
-| **File ops** | `file_read`, `file_write`, `file_list` (sandboxed to `./workspace/`) |
-| **Code exec** | `code_execute_python`, `code_execute_bash`, `code_execute_powershell` |
-| **Search** | `web_search` (DuckDuckGo, no key needed), `cve_search` (NVD API) |
-| **Memory** | `memory_record_host/service/finding/lesson`, `memory_lookup_lesson`, `memory_add_hypothesis` |
-| **Planning** | `plan_create`, `plan_update_task`, `plan_view` |
-| **Reporting** | `report_generate`, `report_list_findings` |
+### File Operations (Normal Mode)
+- `file_read` - Read files from workspace
+- `file_write` - Create/edit files
+- `file_list` - List directory contents
 
-Dangerous tools (`recon_nmap`, `code_execute_*`, `file_write`) require operator approval before running. Approve via CLI prompt, Telegram inline buttons, or Discord reactions.
+### Code Execution (Both Modes)
+- `code_execute_python` - Run Python scripts
+- `code_execute_bash` - Execute bash commands
+- `code_execute_powershell` - PowerShell commands
+
+### Web & Search (Both Modes)
+- `http_request` - Make HTTP requests
+- `web_crawl` - Crawl websites
+- `web_search` - DuckDuckGo search
+- `cve_search` - NVD CVE lookup
+
+### Offensive Tools (Hack Mode Only)
+See full list in `agent/tools/offensive.py`
 
 ---
 
-## 🤖 Surfaces
+## 🧠 Memory System
 
-Three ways to talk to the same agent:
+### World Memory (Graph-Based)
 
-### CLI (default)
+Stores target infrastructure as a graph:
+- **Nodes**: Hosts, Services, Users, Credentials, Findings
+- **Edges**: Relationships, trust paths, attack vectors
+
+Example:
+```python
+host:example.com
+  └─ has_service → service:example.com:80:tcp
+  └─ has_service → service:example.com:443:tcp
+  └─ finds → finding:0001 (CVE-2024-1234)
+```
+
+Export visualization:
 ```bash
-cyber-agent
+>>> Export world graph to DOT format
+# Generates Graphviz-compatible output for attack path visualization
 ```
-Rich-rendered REPL. Type objectives, get responses, approve dangerous ops with `yes`/`no`/`always`.
-
-### Telegram
-```bash
-python surfaces/telegram_bot.py
-```
-Approval prompts show as inline keyboard buttons (✅ Allow / 🚫 Deny). Set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_ALLOWED_USERS` in `.env`.
-
-### Discord
-```bash
-python surfaces/discord_bot.py
-```
-Approval via ✅/❌ reactions. Set `DISCORD_BOT_TOKEN` and `DISCORD_ALLOWED_USERS`. Enable the Message Content Intent in the Discord dev portal. Use `!run <objective>`.
 
 ---
 
-## 🔄 How one turn works
+## 🔐 Security Features
 
-```
-1. You send an objective
-   ↓
-2. Agent builds system prompt (RoE + 6 memory summaries + tool list)
-   ↓
-3. Agent calls LLM with: prompt + history + tool schemas
-   ↓
-4. LLM returns either:
-   a) Final text → done, return to you
-   b) Tool call(s) → continue
-   ↓
-5. For each tool call:
-   • Scope check (target in RoE?) — refuse if not
-   • Approval check (dangerous?) — ask you
-   • Execute, log to audit, feed result back to LLM
-   ↓
-6. Loop back to step 3
-   ↓
-7. Final response → save to episodic memory → return
+### Scope Enforcement
+Every tool call is checked against the Rules of Engagement:
+```python
+# Automatic scope validation
+if target not in scope:
+    refuse_action("Out of scope!")
 ```
 
-Iteration budget defaults to 50 (configurable). When the budget runs out, the agent suggests generating a report.
+### Approval System
+Dangerous operations require human approval:
+- Configurable policy: `always`, `once_per_session`, `auto`
+- Timeout-based default-deny
+- Audit trail of all approvals/denials
+
+### Audit Logging
+All actions logged to:
+- Text log file (`data/audit.log`)
+- SQLite database (queryable)
+- Includes: timestamps, tool calls, targets, results, approver
 
 ---
 
-## 🛡️ Security model (the short version)
-
-1. **RoE required** — no signed Rules of Engagement, no agent
-2. **Scope enforcement** — every tool with a target arg is checked
-3. **Hard blocklist** — `.gov`, `.mil`, etc. never touched regardless of RoE
-4. **Approval layer** — dangerous tools need your yes/no
-5. **Default-deny on timeout** — 120s with no answer = denied
-6. **Audit log** — every tool call, scope violation, approval decision logged
-7. **Sandboxed files** — agent can only read/write `./workspace/`
-8. **No plaintext secrets** — credential nodes store SHA-256 hashes only
-
----
-
-## 📁 Project structure
+## 📁 Project Structure
 
 ```
 cyber-agent/
 ├── agent/
-│   ├── agent.py             # the loop (brain)
-│   ├── authorization.py     # RoE parser + scope enforcement
-│   ├── audit.py             # append-only audit log
-│   ├── provider.py          # LLM provider abstraction
-│   ├── memory/              # 6 memory systems
-│   └── tools/               # 20+ tools + registry + approval
-├── cli/main.py              # interactive REPL
-├── surfaces/                # Telegram + Discord bots
-├── data/
-│   ├── procedures/          # YAML playbooks
-│   └── semantic_seed/       # CWE + ATT&CK seed data
-├── tests/test_smoke.py      # 5/5 passing
-├── RULES_OF_ENGAGEMENT.md   # ← you sign this
-├── config.yaml
-├── .env
-└── README.md                # this file
+│   ├── agent.py          # Core agent loop
+│   ├── modes.py          # Normal/Hack mode management
+│   ├── provider.py       # LLM provider abstraction
+│   ├── authorization.py  # RoE enforcement
+│   ├── audit.py          # Audit logging
+│   ├── memory/           # 6 memory systems
+│   └── tools/
+│       ├── registry.py   # Tool registration
+│       ├── offensive.py  # Offensive security tools
+│       ├── recon.py      # Basic recon tools
+│       ├── web.py        # HTTP/crawling
+│       ├── codeexec.py   # Code execution
+│       ├── fileops.py    # File operations
+│       └── search.py     # Web/CVE search
+├── cli/                  # Command-line interface
+├── surfaces/             # Bot interfaces (Telegram, Discord)
+├── tests/                # Test suite
+├── config.yaml           # Configuration
+├── .env.example          # Environment template
+└── RULES_OF_ENGAGEMENT.md.template
+```
+
+---
+
+## 🔧 Advanced Configuration
+
+### Neo4j Backend (Persistent World Memory)
+
+For long-running engagements, use Neo4j:
+
+```yaml
+memory:
+  world_backend: neo4j
+  neo4j:
+    uri: bolt://localhost:7687
+    user: neo4j
+    password: your_password
+```
+
+Install Neo4j:
+```bash
+docker run -d --name neo4j \
+  -p 7474:7474 -p 7687:7687 \
+  -e NEO4J_AUTH=neo4j/password \
+  neo4j:latest
+```
+
+### Custom Tool Installation
+
+Tools are auto-detected. If missing, the agent suggests installation:
+
+```bash
+# Kali/Debian
+sudo apt install nmap masscan amass theharvester nikto nuclei
+
+# Or use the agent's built-in installer
+>>> Install nmap for port scanning
 ```
 
 ---
 
 ## 🧪 Testing
 
+Run smoke tests:
 ```bash
-python -m pytest tests/test_smoke.py -v
+python tests/test_smoke.py
 ```
 
-5 tests, all passing. They cover imports, RoE parsing, all 6 memory systems, scope enforcement, and agent construction. No LLM calls — uses mocks.
+Test specific components:
+```bash
+python -c "from agent import CyberAgent; print('✓ Import OK')"
+python -c "from agent.tools import OFFENSIVE_TOOLS; print(f'✓ {len(OFFENSIVE_TOOLS)} tools')"
+```
 
 ---
 
-## 🔌 Extending
+## ⚠️ Legal Notice
 
-### Add a tool
+**This tool is for AUTHORIZED security testing only.**
 
-```python
-# agent/tools/my_tool.py
-from .registry import Tool, ToolResult
-
-def my_handler(target: str) -> ToolResult:
-    return ToolResult(success=True, output="done")
-
-MY_TOOL = Tool(
-    name="my_tool",
-    description="Does something cool.",
-    parameters={"type": "object", "properties": {
-        "target": {"type": "string"}
-    }, "required": ["target"]},
-    handler=my_handler,
-    requires_scope_target="target",  # scope-checked
-    requires_approval=True,           # asks operator
-)
-
-MY_TOOLS = [MY_TOOL]
-```
-
-Register in `agent/agent.py` → `_register_tools()`, restart, done.
-
-### Add a playbook
-
-Drop a YAML file in `data/procedures/`. See the 3 included playbooks for the format.
-
-### Swap to Neo4j for World Memory
-
-The `WorldMemory` class already has the `backend="neo4j"` branch stubbed. Implement the Cypher queries, keep the interface — the rest of the agent doesn't change.
+- Always obtain written permission before testing
+- Define clear scope in Rules of Engagement
+- Comply with all applicable laws and regulations
+- The authors are not responsible for misuse
 
 ---
 
-## 🗺️ Roadmap (v2)
+## 🤝 Contributing
 
-- [ ] Neo4j backing for World Memory
+Contributions welcome! Areas needing work:
+- [ ] More offensive tools (see roadmap)
+- [ ] Neo4j backend implementation
 - [ ] Docker sandbox for code execution
-- [ ] MCP integration (consume external MCP servers)
-- [ ] Multi-agent coordination (subagent spawning)
-- [ ] Attack-path visualization (Graphviz — `export_dot()` is ready)
-- [ ] Cloud tools (AWS, Azure, GCP enumeration)
-- [ ] Browser automation (Playwright)
-- [ ] Streaming LLM responses
-- [ ] Web dashboard surface
-- [ ] Cron scheduler
+- [ ] Web dashboard UI
+- [ ] Additional MCP integrations
 
 ---
 
-## 📜 License
+## 📄 License
 
-MIT. See [LICENSE](LICENSE).
+MIT License - See LICENSE file
 
 ---
 
-## ⚠️ Legal Disclaimer (read this before you use it)
-
-Okay, here's the serious part. **This software is for authorized security testing only.** That means:
-
-- ✅ You have **written authorization** from the asset owner, OR
-- ✅ You're operating under an **authorized bug bounty program** with clear scope and rules, OR
-- ✅ You're testing on **your own infrastructure** that you own
-
-If none of those are true, **don't use this**. Unauthorized scanning, enumeration, or testing of systems you don't own is a crime — under the Computer Fraud and Abuse Act (US), the Computer Misuse Act (UK), and similar laws pretty much everywhere else. Penalties include fines and prison time. Not a joke.
-
-The Rules of Engagement file exists for a reason: it documents what you're authorized to do, and the agent enforces it. If you're tempted to bypass the RoE or disable scope checks, **stop and ask yourself whether you actually have permission**. If you're not sure, you don't.
-
-By using this software:
-- You accept **full responsibility** for any actions performed with it
-- You warrant that you have the **legal authority** to test your targets
-- You agree that the authors and contributors are **not liable** for misuse
-
-The audit log is your friend — it produces a defensible record of what was done, when, and under what authorization. If you ever need to explain your actions to a client, employer, or court, that log is what saves you. Don't disable it.
-
-**Stay legal. Stay authorized. Do good security work.** 🛡️
+Made with ❤️ for the security community

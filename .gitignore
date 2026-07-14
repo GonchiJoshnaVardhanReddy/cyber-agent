@@ -1,28 +1,36 @@
-# Python
+```
+# Environment variables
+.env.local
+*.env.*
+
+# Dependencies
 __pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-*.egg-info/
-*.egg
-.pytest_cache/
+*.pyc
+*.pyo
+*.pyd
 
-# Env
-.env
-.venv/
-venv/
+# Database
+*.db
 
-# Data (auto-generated)
-data/agent.db
-data/agent.db-wal
-data/agent.db-shm
-data/audit.log
-workspace/
-reports/
+# Logs
+*.log
 
-# IDE
-.vscode/
-.idea/
+# Temporary files
+*.tmp
+*.temp
 *.swp
+*.swo
+
+# OS generated files
 .DS_Store
+Thumbs.db
+
+# Coverage reports
+.coverage
+htmlcov/
+coverage/
+
+# Virtual environments
+venv/
+.venv/
+```
