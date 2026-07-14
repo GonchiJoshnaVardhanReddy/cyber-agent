@@ -2,9 +2,20 @@
 # Copy to config.yaml and edit. Environment variables override these values.
 
 agent:
-  # LLM provider: openai | anthropic | ollama | openrouter
-  provider: openai
-  model: gpt-4o
+  # LLM provider: openai | anthropic | ollama | openrouter | groq | together | vllm
+  # - openai: OpenAI API (requires OPENAI_API_KEY)
+  # - anthropic: Anthropic API (requires ANTHROPIC_API_KEY)
+  # - ollama: Local Ollama server (no API key required, runs on http://localhost:11434)
+  # - openrouter: OpenRouter API (requires OPENAI_API_KEY with your OpenRouter key)
+  # - groq: Groq API (requires OPENAI_API_KEY with your Groq key)
+  # - together: Together AI API (requires OPENAI_API_KEY with your Together key)
+  # - vllm: Local vLLM server (no API key required by default)
+  provider: ollama
+  model: llama3.1
+  # Optional: custom base URL for OpenAI-compatible providers
+  # base_url: http://localhost:11434/v1  # for Ollama
+  # base_url: https://api.openai.com/v1  # for OpenAI (default)
+  # base_url: https://openrouter.ai/api/v1  # for OpenRouter
   # Max tool-call iterations per turn (Hermes uses 90; pentest needs more room)
   max_iterations: 50
   # Temperature for reasoning (lower = more deterministic)

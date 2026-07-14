@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
-from .provider import LLMProvider, LLMResponse, make_provider_from_env
+from .provider import LLMProvider, LLMResponse, ToolCall, make_provider_from_config
 from .authorization import RulesOfEngagement
 from .audit import AuditLog
 from .memory import (
@@ -353,8 +353,8 @@ def build_agent_from_env(config_dict: dict) -> CyberAgent:
         metadata={"roe_hash": roe.file_hash, "type": roe.engagement_type},
     )
 
-    # 4. Provider
-    provider, model = make_provider_from_env()
+    # 4. Provider (from config + env overrides)
+    provider, default_model = make_provider_from_config(config_dict)
 
     # 5. Approval policy (will be set by the surface — CLI/Telegram/Discord)
     approval_policy = None  # surfaces set this via agent.approval_policy = ...
@@ -362,7 +362,7 @@ def build_agent_from_env(config_dict: dict) -> CyberAgent:
     # 6. Build the agent
     agent_config = AgentConfig(
         provider=provider,
-        model=agent_cfg.get("model", model),
+        model=agent_cfg.get("model", default_model),
         max_iterations=agent_cfg.get("max_iterations", 50),
         temperature=agent_cfg.get("temperature", 0.2),
         max_tokens=agent_cfg.get("max_tokens", 4096),

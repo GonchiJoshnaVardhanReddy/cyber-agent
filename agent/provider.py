@@ -171,23 +171,79 @@ class AnthropicProvider(LLMProvider):
         )
 
 
-def make_provider_from_env() -> tuple[LLMProvider, str]:
-    """Pick a provider from environment variables. Returns (provider, default_model)."""
-    provider_name = os.getenv("CYBER_AGENT_PROVIDER", "openai").lower()
-
+def make_provider_from_config(config_dict: dict) -> tuple[LLMProvider, str]:
+    """Pick a provider from config + environment variables. Returns (provider, default_model).
+    
+    Supports: openai, anthropic, ollama, openrouter, groq, together, vllm, or any OpenAI-compatible endpoint.
+    
+    Config format:
+        agent:
+            provider: ollama  # or openai, anthropic, openrouter, groq, together, vllm
+            model: llama3.1   # model name for the provider
+            base_url: http://localhost:11434/v1  # optional, for OpenAI-compatible providers
+    
+    Environment variables (override config):
+        CYBER_AGENT_PROVIDER: overrides agent.provider
+        OPENAI_API_KEY, ANTHROPIC_API_KEY: API keys
+        OPENAI_BASE_URL: base URL for OpenAI-compatible providers
+        CYBER_AGENT_MODEL: default model name
+    """
+    agent_cfg = config_dict.get("agent", {})
+    
+    # Provider can be overridden by env var
+    provider_name = os.getenv("CYBER_AGENT_PROVIDER", agent_cfg.get("provider", "openai")).lower()
+    
     if provider_name == "anthropic":
         api_key = os.getenv("ANTHROPIC_API_KEY", "")
         if not api_key:
             raise RuntimeError("ANTHROPIC_API_KEY not set")
-        model = os.getenv("ANTHROPIC_MODEL", "claude-3-5-sonnet-20241022")
+        model = os.getenv("CYBER_AGENT_MODEL", agent_cfg.get("model", "claude-3-5-sonnet-20241022"))
         return AnthropicProvider(api_key=api_key), model
-
-    # Default: OpenAI-compatible
-    api_key = os.getenv("OPENAI_API_KEY", "")
-    base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
-    if not api_key:
-        raise RuntimeError(
-            "OPENAI_API_KEY not set. Set it in .env or use CYBER_AGENT_PROVIDER=anthropic"
-        )
-    model = os.getenv("CYBER_AGENT_MODEL", "gpt-4o")
+    
+    # All other providers use OpenAI-compatible API
+    # Determine base_url and api_key based on provider
+    if provider_name == "ollama":
+        base_url = os.getenv("OPENAI_BASE_URL", agent_cfg.get("base_url", "http://localhost:11434/v1"))
+        api_key = os.getenv("OPENAI_API_KEY", "ollama")  # Ollama doesn't require a real key
+        default_model = agent_cfg.get("model", "llama3.1")
+    elif provider_name == "openrouter":
+        base_url = os.getenv("OPENAI_BASE_URL", agent_cfg.get("base_url", "https://openrouter.ai/api/v1"))
+        api_key = os.getenv("OPENAI_API_KEY", "")
+        if not api_key:
+            raise RuntimeError("OPENAI_API_KEY not set (required for OpenRouter)")
+        default_model = agent_cfg.get("model", "meta-llama/llama-3.1-70b-instruct")
+    elif provider_name == "groq":
+        base_url = os.getenv("OPENAI_BASE_URL", agent_cfg.get("base_url", "https://api.groq.com/openai/v1"))
+        api_key = os.getenv("OPENAI_API_KEY", "")
+        if not api_key:
+            raise RuntimeError("OPENAI_API_KEY not set (required for Groq)")
+        default_model = agent_cfg.get("model", "llama3-70b-8192")
+    elif provider_name == "together":
+        base_url = os.getenv("OPENAI_BASE_URL", agent_cfg.get("base_url", "https://api.together.xyz/v1"))
+        api_key = os.getenv("OPENAI_API_KEY", "")
+        if not api_key:
+            raise RuntimeError("OPENAI_API_KEY not set (required for Together)")
+        default_model = agent_cfg.get("model", "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo")
+    elif provider_name == "vllm":
+        base_url = os.getenv("OPENAI_BASE_URL", agent_cfg.get("base_url", "http://localhost:8000/v1"))
+        api_key = os.getenv("OPENAI_API_KEY", "vllm")  # vLLM doesn't require a real key by default
+        default_model = agent_cfg.get("model", "")
+        if not default_model:
+            raise RuntimeError("Model name required for vLLM (set agent.model in config)")
+    else:
+        # Default to OpenAI
+        base_url = os.getenv("OPENAI_BASE_URL", agent_cfg.get("base_url", "https://api.openai.com/v1"))
+        api_key = os.getenv("OPENAI_API_KEY", "")
+        if not api_key:
+            raise RuntimeError(
+                "OPENAI_API_KEY not set. Set it in .env or use CYBER_AGENT_PROVIDER=ollama/anthropic/etc."
+            )
+        default_model = agent_cfg.get("model", "gpt-4o")
+    
+    model = os.getenv("CYBER_AGENT_MODEL", default_model)
     return OpenAICompatibleProvider(api_key=api_key, base_url=base_url), model
+
+
+def make_provider_from_env() -> tuple[LLMProvider, str]:
+    """Legacy function - kept for backward compatibility. Use make_provider_from_config instead."""
+    return make_provider_from_config({})
