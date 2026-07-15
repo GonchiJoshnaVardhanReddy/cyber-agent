@@ -17,6 +17,8 @@ Requires-Dist: pyyaml>=6.0.2
 Requires-Dist: networkx>=3.3
 Requires-Dist: python-dotenv>=1.0.1
 Requires-Dist: pydantic>=2.9.0
+Requires-Dist: readchar>=4.1.0
+Requires-Dist: requests>=2.31.0
 Provides-Extra: telegram
 Requires-Dist: python-telegram-bot>=21.6; extra == "telegram"
 Provides-Extra: discord
