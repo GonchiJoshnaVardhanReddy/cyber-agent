@@ -466,13 +466,416 @@ SHODAN_TOOL = Tool(
 )
 
 
-# Continue with more tools...
+# =============================================================================
+# SUBDOMAIN ENUMERATION TOOLS
+# =============================================================================
+
+def _subfinder_handler(domain: str, timeout: int = 300) -> ToolResult:
+    """Fast subdomain enumeration with Subfinder."""
+    if not _check_tool_installed("subfinder"):
+        install_cmd = "go install -v github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest"
+        return ToolResult(
+            success=False,
+            output=f"subfinder is not installed. Install with: {install_cmd}",
+            error="not_installed",
+        )
+    
+    cmd = ["subfinder", "-d", domain, "-timeout", str(timeout)]
+    rc, out, err = _run_subprocess(cmd, timeout=timeout)
+    
+    subdomains = [line.strip() for line in out.split("\n") if line.strip()]
+    
+    return ToolResult(
+        success=rc == 0 or subdomains,
+        output=f"Found {len(subdomains)} subdomains:\\n" + "\\n".join(subdomains[:100]),
+        data={"returncode": rc, "subdomain_count": len(subdomains), "subdomains": subdomains},
+    )
+
+
+SUBFINDER_TOOL = Tool(
+    name="offensive_subfinder",
+    description=(
+        "Subfinder - Fast passive subdomain enumeration tool. "
+        "Uses multiple sources like certificate transparency, DNS, etc. "
+        "Good for initial recon phase. Returns list of discovered subdomains."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "domain": {"type": "string", "description": "Target domain"},
+            "timeout": {"type": "integer", "description": "Timeout in seconds", "default": 300},
+        },
+        "required": ["domain"],
+    },
+    handler=_subfinder_handler,
+    requires_approval=False,
+    requires_scope_target="domain",
+    dangerous=False,
+)
+
+
+def _assetfinder_handler(domain: str, timeout: int = 120) -> ToolResult:
+    """Find domains and subdomains related to a target with assetfinder."""
+    if not _check_tool_installed("assetfinder"):
+        install_cmd = "go install github.com/tomnomnom/assetfinder@latest"
+        return ToolResult(
+            success=False,
+            output=f"assetfinder is not installed. Install with: {install_cmd}",
+            error="not_installed",
+        )
+    
+    cmd = ["assetfinder", "--subs-only", domain]
+    rc, out, err = _run_subprocess(cmd, timeout=timeout)
+    
+    subdomains = [line.strip() for line in out.split("\n") if line.strip()]
+    
+    return ToolResult(
+        success=rc == 0 or subdomains,
+        output=f"Found {len(subdomains)} subdomains:\\n" + "\\n".join(subdomains[:100]),
+        data={"returncode": rc, "subdomain_count": len(subdomains)},
+    )
+
+
+ASSETFINDER_TOOL = Tool(
+    name="offensive_assetfinder",
+    description=(
+        "assetfinder - Find domains and subdomains related to a target. "
+        "Passive only, uses various public sources. "
+        "Fast and lightweight, good for quick subdomain discovery."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "domain": {"type": "string", "description": "Target domain"},
+            "timeout": {"type": "integer", "description": "Timeout in seconds", "default": 120},
+        },
+        "required": ["domain"],
+    },
+    handler=_assetfinder_handler,
+    requires_approval=False,
+    requires_scope_target="domain",
+    dangerous=False,
+)
+
+
+# =============================================================================
+# WEB VULNERABILITY SCANNERS
+# =============================================================================
+
+def _nikto_handler(target: str, port: int = 80, ssl: bool = False,
+                   timeout: int = 600) -> ToolResult:
+    """Web server scanner with Nikto."""
+    if not _check_tool_installed("nikto"):
+        install_cmd = _install_command("nikto", "nikto")
+        return ToolResult(
+            success=False,
+            output=f"nikto is not installed. Install with: {install_cmd}",
+            error="not_installed",
+        )
+    
+    cmd = ["nikto", "-h", target, "-p", str(port), "-T", "1"]
+    if ssl:
+        cmd.extend(["-ssl"])
+    
+    rc, out, err = _run_subprocess(cmd, timeout=timeout)
+    
+    # Parse findings from nikto output
+    findings = []
+    for line in out.split("\n"):
+        if "+ " in line:
+            findings.append(line.strip())
+    
+    return ToolResult(
+        success=rc == 0 or out,
+        output=out[:15000] if out else err,
+        data={"returncode": rc, "findings_count": len(findings)},
+    )
+
+
+NIKTO_TOOL = Tool(
+    name="offensive_nikto",
+    description=(
+        "Nikto - Web server scanner that tests for dangerous files, CGI, "
+        "outdated software, and other vulnerabilities. "
+        "Comprehensive but can be noisy. Good for initial web assessment."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "target": {"type": "string", "description": "Target IP or hostname"},
+            "port": {"type": "integer", "description": "Target port", "default": 80},
+            "ssl": {"type": "boolean", "description": "Use SSL/HTTPS", "default": False},
+            "timeout": {"type": "integer", "description": "Timeout in seconds", "default": 600},
+        },
+        "required": ["target"],
+    },
+    handler=_nikto_handler,
+    requires_approval=True,
+    requires_scope_target="target",
+    dangerous=False,
+)
+
+
+def _nuclei_handler(target: str, templates: str = "",
+                    severity: str = "", timeout: int = 600) -> ToolResult:
+    """Fast vulnerability scanner with Nuclei."""
+    if not _check_tool_installed("nuclei"):
+        install_cmd = "go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest"
+        return ToolResult(
+            success=False,
+            output=f"nuclei is not installed. Install with: {install_cmd}",
+            error="not_installed",
+        )
+    
+    cmd = ["nuclei", "-u", target, "-json"]
+    if templates:
+        cmd.extend(["-t", templates])
+    if severity:
+        cmd.extend(["-severity", severity])
+    
+    rc, out, err = _run_subprocess(cmd, timeout=timeout)
+    
+    # Parse JSON output
+    findings = []
+    for line in out.split("\n"):
+        if line.strip():
+            try:
+                import json
+                findings.append(json.loads(line))
+            except:
+                pass
+    
+    return ToolResult(
+        success=rc == 0 or findings,
+        output=f"Found {len(findings)} potential vulnerabilities:\n" + 
+               "\n".join([f"- {f.get('template-id', 'unknown')}: {f.get('name', '')} [{f.get('severity', 'unknown')}]" for f in findings[:20]]),
+        data={"returncode": rc, "findings": findings},
+    )
+
+
+NUCLEI_TOOL = Tool(
+    name="offensive_nuclei",
+    description=(
+        "Nuclei - Fast and customizable vulnerability scanner. "
+        "Uses template-based scanning for thousands of known vulnerabilities. "
+        "Supports severity filtering. Returns structured findings."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "target": {"type": "string", "description": "Target URL or IP"},
+            "templates": {"type": "string", "description": "Specific templates to use (comma-separated)", "default": ""},
+            "severity": {"type": "string", "description": "Filter by severity: critical,high,medium,low,info", "default": ""},
+            "timeout": {"type": "integer", "description": "Timeout in seconds", "default": 600},
+        },
+        "required": ["target"],
+    },
+    handler=_nuclei_handler,
+    requires_approval=True,
+    requires_scope_target="target",
+    dangerous=False,
+)
+
+
+def _ffuf_handler(url: str, wordlist: str = "",
+                  extensions: str = "", timeout: int = 300) -> ToolResult:
+    """Fast web fuzzer for directory/file discovery with ffuf."""
+    if not _check_tool_installed("ffuf"):
+        install_cmd = "go install -v github.com/ffuf/ffuf/v2@latest"
+        return ToolResult(
+            success=False,
+            output=f"ffuf is not installed. Install with: {install_cmd}",
+            error="not_installed",
+        )
+    
+    wl = wordlist or "/usr/share/wordlists/dirb/common.txt"
+    cmd = ["ffuf", "-u", url, "-w", f"{wl}:FUZZ", "-mc", "200,204,301,302,307,401,403", "-json"]
+    if extensions:
+        cmd.extend(["-e", extensions])
+    
+    rc, out, err = _run_subprocess(cmd, timeout=timeout)
+    
+    # Parse JSON output
+    results = []
+    for line in out.split("\n"):
+        if line.strip():
+            try:
+                import json
+                results.append(json.loads(line))
+            except:
+                pass
+    
+    found_paths = [r.get('url', '') for r in results if r.get('status') in [200, 301, 302]]
+    
+    return ToolResult(
+        success=rc == 0 or results,
+        output=f"Found {len(found_paths)} interesting paths:\\n" + "\\n".join(found_paths[:30]),
+        data={"returncode": rc, "results": results},
+    )
+
+
+FFUF_TOOL = Tool(
+    name="offensive_ffuf",
+    description=(
+        "ffuf - Fast web fuzzer written in Go. "
+        "Used for directory/file discovery, parameter fuzzing, vhost discovery. "
+        "Uses wordlists. Default wordlist: /usr/share/wordlists/dirb/common.txt"
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "url": {"type": "string", "description": "Target URL with FUZZ keyword, e.g., 'https://example.com/FUZZ'"},
+            "wordlist": {"type": "string", "description": "Path to wordlist file", "default": ""},
+            "extensions": {"type": "string", "description": "File extensions to test, e.g., '.php,.asp,.txt'", "default": ""},
+            "timeout": {"type": "integer", "description": "Timeout in seconds", "default": 300},
+        },
+        "required": ["url"],
+    },
+    handler=_ffuf_handler,
+    requires_approval=True,
+    requires_scope_target="url",
+    dangerous=False,
+)
+
+
+def _gobuster_handler(target: str, mode: str = "dir",
+                      wordlist: str = "", timeout: int = 300) -> ToolResult:
+    """Directory/file and DNS busting with Gobuster."""
+    if not _check_tool_installed("gobuster"):
+        install_cmd = "go install github.com/OJ/gobuster/v3@latest"
+        return ToolResult(
+            success=False,
+            output=f"gobuster is not installed. Install with: {install_cmd}",
+            error="not_installed",
+        )
+    
+    wl = wordlist or "/usr/share/wordlists/dirb/common.txt"
+    
+    if mode == "dir":
+        cmd = ["gobuster", "dir", "-u", target, "-w", wl]
+    elif mode == "dns":
+        cmd = ["gobuster", "dns", "-d", target, "-w", wl]
+    else:
+        return ToolResult(success=False, output=f"Unknown mode: {mode}", error="invalid_mode")
+    
+    rc, out, err = _run_subprocess(cmd, timeout=timeout)
+    
+    return ToolResult(
+        success=rc == 0 or out,
+        output=out[:15000] if out else err,
+        data={"returncode": rc},
+    )
+
+
+GOBUSTER_TOOL = Tool(
+    name="offensive_gobuster",
+    description=(
+        "Gobuster - Directory/file and DNS busting tool. "
+        "Modes: 'dir' (directory brute-forcing), 'dns' (subdomain brute-forcing). "
+        "Uses wordlists for brute-force attacks."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "target": {"type": "string", "description": "Target URL (for dir mode) or domain (for dns mode)"},
+            "mode": {"type": "string", "description": "Operation mode: dir or dns", "default": "dir"},
+            "wordlist": {"type": "string", "description": "Path to wordlist file", "default": ""},
+            "timeout": {"type": "integer", "description": "Timeout in seconds", "default": 300},
+        },
+        "required": ["target"],
+    },
+    handler=_gobuster_handler,
+    requires_approval=True,
+    requires_scope_target="target",
+    dangerous=False,
+)
+
+
+# =============================================================================
+# EXPLOITATION TOOLS
+# =============================================================================
+
+def _sqlmap_handler(url: str, data: str = "", dbms: str = "",
+                    level: int = 1, risk: int = 1,
+                    timeout: int = 600) -> ToolResult:
+    """SQL injection detection and exploitation with sqlmap."""
+    if not _check_tool_installed("sqlmap"):
+        install_cmd = _install_command("sqlmap", "sqlmap")
+        return ToolResult(
+            success=False,
+            output=f"sqlmap is not installed. Install with: {install_cmd}",
+            error="not_installed",
+        )
+    
+    cmd = ["sqlmap", "-u", url, "--batch", "--level", str(level), "--risk", str(risk)]
+    if data:
+        cmd.extend(["--data", data])
+    if dbms:
+        cmd.extend(["--dbms", dbms])
+    
+    rc, out, err = _run_subprocess(cmd, timeout=timeout)
+    
+    return ToolResult(
+        success=rc == 0 or out,
+        output=out[:15000] if out else err,
+        data={"returncode": rc},
+    )
+
+
+SQLMAP_TOOL = Tool(
+    name="offensive_sqlmap",
+    description=(
+        "⚠️ sqlmap - Automatic SQL injection and database takeover tool. "
+        "DANGEROUS: Can cause data loss or service disruption. "
+        "ALWAYS requires explicit human approval. "
+        "Use only on authorized targets with proper scope. "
+        "Level (1-5) and risk (1-3) control aggressiveness."
+    ),
+    parameters={
+        "type": "object",
+        "properties": {
+            "url": {"type": "string", "description": "Target URL with vulnerable parameter"},
+            "data": {"type": "string", "description": "POST data (optional)", "default": ""},
+            "dbms": {"type": "string", "description": "Force DBMS type: mysql, postgresql, mssql, oracle", "default": ""},
+            "level": {"type": "integer", "description": "Test level 1-5 (higher = more tests)", "default": 1},
+            "risk": {"type": "integer", "description": "Risk level 1-3 (higher = more aggressive)", "default": 1},
+            "timeout": {"type": "integer", "description": "Timeout in seconds", "default": 600},
+        },
+        "required": ["url"],
+    },
+    handler=_sqlmap_handler,
+    requires_approval=True,
+    requires_scope_target="url",
+    dangerous=True,
+)
+
+
+# =============================================================================
+# COMPLETE TOOL LIST
+# =============================================================================
+
 OFFENSIVE_TOOLS = [
+    # Network Scanners
     NMAP_ADVANCED_TOOL,
     MASSCAN_TOOL,
     RUSTSCAN_TOOL,
     NAABU_TOOL,
+    
+    # OSINT
     AMASS_TOOL,
     THEHARVESTER_TOOL,
     SHODAN_TOOL,
+    
+    # Subdomain Enumeration
+    SUBFINDER_TOOL,
+    ASSETFINDER_TOOL,
+    
+    # Web Vulnerability Scanners
+    NIKTO_TOOL,
+    NUCLEI_TOOL,
+    FFUF_TOOL,
+    GOBUSTER_TOOL,
+    
+    # Exploitation
+    SQLMAP_TOOL,
 ]

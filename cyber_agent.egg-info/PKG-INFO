@@ -1,0 +1,402 @@
+Metadata-Version: 2.4
+Name: cyber-agent
+Version: 0.1.0
+Summary: Autonomous offensive cybersecurity agent for authorized bug bounty, red team, and penetration testing engagements.
+Author: You
+License: MIT
+Keywords: security,pentest,redteam,bugbounty,agent,llm
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: openai>=1.50.0
+Requires-Dist: anthropic>=0.39.0
+Requires-Dist: httpx>=0.27.0
+Requires-Dist: typer>=0.12.5
+Requires-Dist: rich>=13.9.0
+Requires-Dist: pyyaml>=6.0.2
+Requires-Dist: networkx>=3.3
+Requires-Dist: python-dotenv>=1.0.1
+Requires-Dist: pydantic>=2.9.0
+Provides-Extra: telegram
+Requires-Dist: python-telegram-bot>=21.6; extra == "telegram"
+Provides-Extra: discord
+Requires-Dist: discord.py>=2.4.0; extra == "discord"
+Provides-Extra: all
+Requires-Dist: python-telegram-bot>=21.6; extra == "all"
+Requires-Dist: discord.py>=2.4.0; extra == "all"
+Provides-Extra: dev
+Requires-Dist: pytest>=8.3.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.24.0; extra == "dev"
+Dynamic: license-file
+
+# Cyber Agent - Two-Mode Security Testing Platform
+
+An autonomous cybersecurity agent with **dual-mode operation**:
+1. **Normal Mode** - General assistant for file operations, web search, code execution
+2. **Hack Mode** (`/hack`) - Specialized offensive security testing with structured methodology
+
+## 🎯 Features
+
+### Dual-Mode Operation
+- **Normal Mode**: Download files, write code, manage files, search the web, execute commands
+- **Hack Mode** (`/hack`): Full offensive security workflow with:
+  - Target & scope definition
+  - Multi-stage reconnaissance
+  - Hypothesis-driven testing
+  - Automated vulnerability discovery
+  - Graph-based memory mapping
+  - Professional reporting
+
+### LLM Provider Support
+- **Ollama** (local, free) - `llama3.1`, `mistral`, etc.
+- **OpenAI** - GPT-4o, GPT-4 Turbo
+- **Anthropic** - Claude 3.5 Sonnet
+- **OpenRouter** - Access to 100+ models
+- **Groq** - Fast inference
+- **Together AI** - Open-source models
+- **vLLM** - Self-hosted deployment
+
+### Offensive Security Tools (70+)
+#### Network Scanning
+- Nmap (advanced), Masscan, RustScan, Naabu
+
+#### OSINT & Reconnaissance  
+- Amass, theHarvester, Shodan, Censys
+- WHOIS, DNS enumeration
+- Subdomain enumeration (Subfinder, Assetfinder)
+
+#### Web Discovery
+- ffuf, Feroxbuster, Gobuster, Dirsearch
+- httpx, WhatWeb, Wappalyzer
+
+#### Vulnerability Scanning
+- Nuclei, Nikto, OWASP ZAP
+- Burp Suite integration
+
+#### Web Vulnerability Testing
+- XSStrike, DalFox (XSS)
+- sqlmap (SQL injection)
+- Arjun (parameter discovery)
+
+#### SSL/TLS Testing
+- testssl.sh, SSLyze
+
+### Memory Systems (6 Types)
+1. **Working Memory** - Current task state & plan
+2. **World Memory** - Graph-based target mapping (NetworkX/Neo4j)
+3. **Semantic Memory** - Facts & knowledge
+4. **Procedural Memory** - Playbooks & methodologies
+5. **Episodic Memory** - Engagement history
+6. **Experience Memory** - Lessons learned
+
+### Safety & Compliance
+- **Rules of Engagement** enforcement
+- **Scope checking** on every tool call
+- **Human-in-the-loop** approval system
+- **Audit logging** for all actions
+- **Hard blocklists** (.gov, .mil, localhost)
+
+---
+
+## 🚀 Quick Start
+
+### 1. Installation
+
+```bash
+git clone <repository-url>
+cd cyber-agent
+pip install -e .
+```
+
+### 2. Configuration
+
+Copy the example config and environment files:
+
+```bash
+cp config.yaml.example config.yaml
+cp .env.example .env
+```
+
+Edit `.env` to set your LLM provider:
+
+```bash
+# For Ollama (local, no API key needed)
+CYBER_AGENT_PROVIDER=ollama
+CYBER_AGENT_MODEL=llama3.1:8b
+
+# OR for OpenAI
+CYBER_AGENT_PROVIDER=openai
+OPENAI_API_KEY=sk-your-key-here
+CYBER_AGENT_MODEL=gpt-4o
+
+# OR for Anthropic
+CYBER_AGENT_PROVIDER=anthropic
+ANTHROPIC_API_KEY=sk-ant-your-key-here
+```
+
+Optional API keys for enhanced recon:
+```bash
+SHODAN_API_KEY=your_shodan_key
+TAVILY_API_KEY=your_tavily_key  # Web search
+```
+
+### 3. Create Rules of Engagement
+
+```bash
+cp RULES_OF_ENGAGEMENT.md.template RULES_OF_ENGAGEMENT.md
+# Edit with your engagement details, scope, and dates
+```
+
+### 4. Run the Agent
+
+```bash
+python -m cli.main
+```
+
+---
+
+## 📖 Usage
+
+### Normal Mode (Default)
+
+The agent acts as a general security assistant:
+
+```
+>>> Download the latest OWASP Top 10 PDF
+>>> Write a Python script to parse nmap output
+>>> Search for recent CVEs in Apache servers
+>>> Create a report template in the workspace
+```
+
+### Hack Mode (Offensive Security)
+
+Enter hack mode with `/hack` command:
+
+```
+>>> /hack
+Target: example.com
+Scope: example.com, *.example.com
+Excluded: dev.example.com, staging.example.com
+Engagement Type: bug_bounty (or pentest/red_team)
+
+Starting hack mode...
+```
+
+#### Hack Mode Workflow
+
+**Stage 1: Reconnaissance**
+```
+>>> Start passive recon on example.com
+>>> Run Amass for subdomain enumeration
+>>> Search Shodan for exposed services
+>>> Perform DNS enumeration
+```
+
+**Stage 2: Hypothesis Generation**
+The LLM analyzes recon data and generates hypotheses:
+- "Subdomain admin.example.com may have weak authentication"
+- "Port 8080 running Jetty could be vulnerable to CVE-2024-1234"
+
+**Stage 3: Active Testing**
+```
+>>> Test hypothesis #1 with http_request
+>>> Run Nuclei scans on discovered hosts
+>>> Perform directory brute-forcing with ffuf
+>>> Check for SQL injection with sqlmap
+```
+
+**Stage 4: Reporting**
+```
+>>> Generate findings report
+>>> Export attack path graph
+>>> Create remediation recommendations
+```
+
+Exit hack mode:
+```
+>>> /exit_hack
+```
+
+---
+
+## 🛠️ Tool Categories
+
+### File Operations (Normal Mode)
+- `file_read` - Read files from workspace
+- `file_write` - Create/edit files
+- `file_list` - List directory contents
+
+### Code Execution (Both Modes)
+- `code_execute_python` - Run Python scripts
+- `code_execute_bash` - Execute bash commands
+- `code_execute_powershell` - PowerShell commands
+
+### Web & Search (Both Modes)
+- `http_request` - Make HTTP requests
+- `web_crawl` - Crawl websites
+- `web_search` - DuckDuckGo search
+- `cve_search` - NVD CVE lookup
+
+### Offensive Tools (Hack Mode Only)
+See full list in `agent/tools/offensive.py`
+
+---
+
+## 🧠 Memory System
+
+### World Memory (Graph-Based)
+
+Stores target infrastructure as a graph:
+- **Nodes**: Hosts, Services, Users, Credentials, Findings
+- **Edges**: Relationships, trust paths, attack vectors
+
+Example:
+```python
+host:example.com
+  └─ has_service → service:example.com:80:tcp
+  └─ has_service → service:example.com:443:tcp
+  └─ finds → finding:0001 (CVE-2024-1234)
+```
+
+Export visualization:
+```bash
+>>> Export world graph to DOT format
+# Generates Graphviz-compatible output for attack path visualization
+```
+
+---
+
+## 🔐 Security Features
+
+### Scope Enforcement
+Every tool call is checked against the Rules of Engagement:
+```python
+# Automatic scope validation
+if target not in scope:
+    refuse_action("Out of scope!")
+```
+
+### Approval System
+Dangerous operations require human approval:
+- Configurable policy: `always`, `once_per_session`, `auto`
+- Timeout-based default-deny
+- Audit trail of all approvals/denials
+
+### Audit Logging
+All actions logged to:
+- Text log file (`data/audit.log`)
+- SQLite database (queryable)
+- Includes: timestamps, tool calls, targets, results, approver
+
+---
+
+## 📁 Project Structure
+
+```
+cyber-agent/
+├── agent/
+│   ├── agent.py          # Core agent loop
+│   ├── modes.py          # Normal/Hack mode management
+│   ├── provider.py       # LLM provider abstraction
+│   ├── authorization.py  # RoE enforcement
+│   ├── audit.py          # Audit logging
+│   ├── memory/           # 6 memory systems
+│   └── tools/
+│       ├── registry.py   # Tool registration
+│       ├── offensive.py  # Offensive security tools
+│       ├── recon.py      # Basic recon tools
+│       ├── web.py        # HTTP/crawling
+│       ├── codeexec.py   # Code execution
+│       ├── fileops.py    # File operations
+│       └── search.py     # Web/CVE search
+├── cli/                  # Command-line interface
+├── surfaces/             # Bot interfaces (Telegram, Discord)
+├── tests/                # Test suite
+├── config.yaml           # Configuration
+├── .env.example          # Environment template
+└── RULES_OF_ENGAGEMENT.md.template
+```
+
+---
+
+## 🔧 Advanced Configuration
+
+### Neo4j Backend (Persistent World Memory)
+
+For long-running engagements, use Neo4j:
+
+```yaml
+memory:
+  world_backend: neo4j
+  neo4j:
+    uri: bolt://localhost:7687
+    user: neo4j
+    password: your_password
+```
+
+Install Neo4j:
+```bash
+docker run -d --name neo4j \
+  -p 7474:7474 -p 7687:7687 \
+  -e NEO4J_AUTH=neo4j/password \
+  neo4j:latest
+```
+
+### Custom Tool Installation
+
+Tools are auto-detected. If missing, the agent suggests installation:
+
+```bash
+# Kali/Debian
+sudo apt install nmap masscan amass theharvester nikto nuclei
+
+# Or use the agent's built-in installer
+>>> Install nmap for port scanning
+```
+
+---
+
+## 🧪 Testing
+
+Run smoke tests:
+```bash
+python tests/test_smoke.py
+```
+
+Test specific components:
+```bash
+python -c "from agent import CyberAgent; print('✓ Import OK')"
+python -c "from agent.tools import OFFENSIVE_TOOLS; print(f'✓ {len(OFFENSIVE_TOOLS)} tools')"
+```
+
+---
+
+## ⚠️ Legal Notice
+
+**This tool is for AUTHORIZED security testing only.**
+
+- Always obtain written permission before testing
+- Define clear scope in Rules of Engagement
+- Comply with all applicable laws and regulations
+- The authors are not responsible for misuse
+
+---
+
+## 🤝 Contributing
+
+Contributions welcome! Areas needing work:
+- [ ] More offensive tools (see roadmap)
+- [ ] Neo4j backend implementation
+- [ ] Docker sandbox for code execution
+- [ ] Web dashboard UI
+- [ ] Additional MCP integrations
+
+---
+
+## 📄 License
+
+MIT License - See LICENSE file
+
+---
+
+Made with ❤️ for the security community
