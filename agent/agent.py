@@ -33,6 +33,7 @@ from .tools.offensive import OFFENSIVE_TOOLS
 from .tools.memory_ops import _make_memory_tools
 from .tools.planning import PlanManager, _make_planning_tools
 from .tools.reporting import _make_reporting_tools
+from .modes import ModeManager, AgentMode
 
 
 SYSTEM_PROMPT_TEMPLATE = """\
@@ -69,8 +70,9 @@ execute tools to achieve objectives within an authorized scope.
    operator will approve or deny. Respect denials.
 
 8. MODE AWARENESS: 
-   - NORMAL MODE: Use general tools (file ops, web search, code execution, basic recon)
-   - HACK MODE (/hack): Use offensive security tools (nmap, masscan, amass, nikto, sqlmap, etc.)
+   - NORMAL MODE: General assistant capabilities (file ops, web search, code execution, basic recon)
+   - HACK MODE: Full offensive security operations (nmap, masscan, amass, nikto, sqlmap, etc.)
+   - Mode is controlled by the operator via /mode command
    - Only use offensive tools when explicitly in hack mode with authorized scope
 
 # CURRENT ENGAGEMENT (Rules of Engagement)
@@ -94,7 +96,7 @@ specific hypothesis you're testing or a clear task to accomplish.
 - Code execution: code_execute_python, code_execute_bash, code_execute_powershell
 - Search: web_search, cve_search
 
-## Hack Mode Tools (Only in /hack mode with authorized scope)
+## Hack Mode Tools (Only when operator enters hack mode via /mode hack)
 - Network Scanners: offensive_nmap, offensive_masscan, offensive_rustscan, offensive_naabu
 - OSINT: offensive_amass, offensive_theharvester, offensive_shodan
 - Subdomain Enum: offensive_subfinder, offensive_assetfinder
@@ -154,6 +156,9 @@ class CyberAgent:
         # Working memory holds the plan manager and execution state
         self.plan_manager = PlanManager()
         self.memory["working"].execution_state["engagement_id"] = self.engagement_id
+        
+        # Initialize mode manager for normal/hack mode switching
+        self.mode_manager = ModeManager()
 
         # Build the tool registry with all tools
         self.registry = ToolRegistry(roe=roe, audit=audit, approval_policy=approval_policy)

@@ -1,7 +1,8 @@
 # Rules of Engagement (active — replace with your real engagement details)
 # This is a SAMPLE file. The agent will accept it but you MUST fill in real values.
+# IMPORTANT: Update these values for YOUR actual engagement!
 
-Engagement ID: ENG-2026-DEMO
+Engagement ID: ENG-2026-DEMO  # Change this to your actual engagement ID
 Engagement Type: Security Research (local lab only)
 Client / Program Name: Local Test Lab
 Program URL: N/A (private lab)
@@ -12,9 +13,9 @@ Authorization Reference: Local lab, owned by operator
 
 Authorized Scope:
   In-Scope Targets:
-    - scanme.nmap.org
-    - 127.0.0.1
-    - localhost
+    - scanme.nmap.org  # Replace with YOUR authorized targets
+    - 127.0.0.1        # Only if testing on your own localhost
+    - localhost        # Only if testing on your own localhost
   Out-of-Scope:
     - everything else
 

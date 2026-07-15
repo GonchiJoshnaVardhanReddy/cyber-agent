@@ -7,8 +7,11 @@ agent:
   # - anthropic: Anthropic API (requires ANTHROPIC_API_KEY)
   # - ollama: Local Ollama server (no API key required, runs on http://localhost:11434)
   # - openrouter: OpenRouter API (requires OPENAI_API_KEY with your OpenRouter key)
-  provider: ollama
-  model: llama3.1
+  # IMPORTANT: Change provider and model to match your setup
+  # For Ollama: ensure ollama is installed and run: ollama pull <model-name>
+  # For OpenAI: set OPENAI_API_KEY in .env file
+  provider: openai
+  model: gpt-4o
   # Optional: custom base URL for OpenAI-compatible providers
   # base_url: http://localhost:11434/v1  # for Ollama (default)
   # base_url: https://api.openai.com/v1  # for OpenAI (default)
