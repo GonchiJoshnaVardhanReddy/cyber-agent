@@ -167,3 +167,12 @@ def _render_markdown(findings: list[dict], world_memory) -> str:
         lines.append("")
 
     return "\n".join(lines)
+
+
+def get_reporting_tools(world_memory, episodic_memory):
+    """Get reporting tools with memory instances."""
+    return _make_reporting_tools(world_memory, episodic_memory)
+
+
+# Placeholder for export - actual tools need memory instances
+REPORTING_TOOLS = []

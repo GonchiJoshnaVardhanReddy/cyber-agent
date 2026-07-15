@@ -213,3 +213,12 @@ def _make_memory_tools(memory_bundle) -> list[Tool]:
         record_host_tool, record_service_tool, record_finding_tool,
         record_lesson_tool, lookup_lesson_tool, add_hypothesis_tool,
     ]
+
+
+def get_memory_tools(memory_bundle):
+    """Get memory tools with memory bundle instance."""
+    return _make_memory_tools(memory_bundle)
+
+
+# Placeholder for export - actual tools need memory bundle instance
+MEMORY_TOOLS = []

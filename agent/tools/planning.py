@@ -160,3 +160,12 @@ def _make_planning_tools(plan_manager: PlanManager) -> list[Tool]:
     )
 
     return [create_plan_tool, update_task_tool, view_plan_tool]
+
+
+def get_planning_tools(plan_manager):
+    """Get planning tools with plan manager instance."""
+    return _make_planning_tools(plan_manager)
+
+
+# Placeholder for export - actual tools need plan manager instance
+PLANNING_TOOLS = []
