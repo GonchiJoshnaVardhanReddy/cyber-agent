@@ -1,15 +1,20 @@
 #!/usr/bin/env python3
-"""scripts/setup.py — Smart installer for Cyber Agent.
+"""scripts/setup.py — Interactive Smart Installer for Cyber Agent.
 
-This script detects your OS and installs missing security tools automatically.
-It supports Linux (Ubuntu/Debian/Kali), macOS, and Windows (WSL).
+This script provides an interactive menu-driven interface for:
+1. Selecting security tools to install using arrow keys and spacebar
+2. Choosing Docker/Kali container setup
+3. Configuring LLM providers (Ollama, OpenAI, Anthropic, etc.)
+4. Auto-detecting and pulling Ollama models
+5. Setting up API keys for cloud providers
 
-Features:
-1. OS Detection: Automatically detects your operating system
-2. Tool Inventory: Maintains a manifest of ~15 critical security tools
-3. State Check: Checks if each tool is installed via `which <tool>` or `<tool> --version`
-4. Auto-Remediation: Generates specific install commands for your OS
-5. Docker Option: Offers to run inside a pre-configured Kali Linux Docker container
+Usage:
+    python scripts/setup.py
+    
+Navigation:
+    ↑/↓ : Move up/down in menu
+    Space : Select/deselect item
+    Enter : Confirm selection
 """
 from __future__ import annotations
 
@@ -17,9 +22,22 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Optional
+import json
+
+# Try to import readchar for interactive menu, fallback to basic input
+try:
+    import readchar
+    HAS_READCHAR = True
+except ImportError:
+    HAS_READCHAR = False
+    print("[!] Installing readchar for interactive menus...")
+    subprocess.run([sys.executable, "-m", "pip", "install", "readchar", "-q"])
+    import readchar
+    HAS_READCHAR = True
 
 
 @dataclass
@@ -31,6 +49,7 @@ class ToolInfo:
     package_names: dict[str, str] = field(default_factory=dict)  # os -> package name
     install_url: str = ""  # fallback installation URL
     requires_root: bool = False
+    installed: bool = False
 
 
 # =============================================================================
@@ -206,6 +225,444 @@ TOOL_INVENTORY = [
 
 
 # =============================================================================
+# INTERACTIVE MENU FUNCTIONS
+# =============================================================================
+
+def clear_screen():
+    """Clear the terminal screen."""
+    os.system('cls' if os.name == 'nt' else 'clear')
+
+
+def print_header(title: str):
+    """Print a styled header."""
+    clear_screen()
+    print("\n" + "=" * 70)
+    print(f"  {title}")
+    print("=" * 70 + "\n")
+
+
+def interactive_tool_menu(tools: list[ToolInfo]) -> list[ToolInfo]:
+    """Interactive menu for selecting tools to install.
+    
+    Navigation:
+        UP/DOWN arrows: Move selection
+        SPACE: Toggle selection
+        ENTER: Confirm and continue
+    """
+    selected_indices = set()
+    current_index = 0
+    
+    # Mark already installed tools
+    for i, tool in enumerate(tools):
+        if check_tool_installed(tool.name):
+            tool.installed = True
+            selected_indices.add(i)  # Auto-select installed tools
+    
+    while True:
+        print_header("SELECT TOOLS TO INSTALL")
+        print("Navigation: ↑/↓ = Move | SPACE = Select/Deselect | ENTER = Confirm\n")
+        print("Already installed tools are pre-selected (✓).\n")
+        
+        # Display tools
+        for i, tool in enumerate(tools):
+            cursor = "► " if i == current_index else "  "
+            
+            if tool.installed:
+                status = "✓"
+                color_code = "\033[92m"  # Green
+            elif i in selected_indices:
+                status = "☑"
+                color_code = "\033[94m"  # Blue
+            else:
+                status = "☐"
+                color_code = "\033[90m"  # Gray
+            
+            reset = "\033[0m"
+            category_tag = f"[{tool.category}]"
+            
+            print(f"{cursor}{color_code}{status} {tool.name:<25} {category_tag:<18} {tool.description}{reset}")
+        
+        print(f"\n\nSelected: {len(selected_indices)}/{len(tools)} tools")
+        print("Press ENTER to proceed with installation...")
+        
+        # Get key input
+        try:
+            key = readchar.readkey()
+            
+            if key == readchar.key.UP:
+                current_index = max(0, current_index - 1)
+            elif key == readchar.key.DOWN:
+                current_index = min(len(tools) - 1, current_index + 1)
+            elif key == " ":
+                # Toggle selection (skip already installed tools)
+                if not tools[current_index].installed:
+                    if current_index in selected_indices:
+                        selected_indices.remove(current_index)
+                    else:
+                        selected_indices.add(current_index)
+            elif key in (readchar.key.ENTER, "\n", "\r"):
+                break
+        except KeyboardInterrupt:
+            print("\n\nInstallation cancelled.")
+            sys.exit(0)
+    
+    # Return selected tools that aren't already installed
+    return [tools[i] for i in selected_indices if not tools[i].installed]
+
+
+def interactive_docker_menu() -> bool:
+    """Interactive menu for Docker/Kali setup."""
+    print_header("DOCKER SETUP")
+    
+    if not check_docker_installed():
+        print("⚠️  Docker is NOT installed on your system.\n")
+        print("Docker provides an isolated Kali Linux environment with all tools pre-installed.")
+        print("This is recommended to avoid polluting your host OS.\n")
+        choice = input("Would you like to install Docker first? [y/N]: ").strip().lower()
+        
+        if choice in ("y", "yes"):
+            print("\n[*] Installing Docker...")
+            if sys.platform == "linux":
+                try:
+                    subprocess.run([
+                        "curl", "-fsSL", "https://get.docker.com", "|", "sh"
+                    ], shell=True, check=True)
+                    print("[+] Docker installed successfully!")
+                    print("[!] You may need to log out and log back in for changes to take effect.")
+                except subprocess.CalledProcessError:
+                    print("[!] Failed to install Docker automatically.")
+                    print("[*] Please install Docker manually from https://docs.docker.com/get-docker/")
+            else:
+                print("[*] Please install Docker Desktop from https://www.docker.com/products/docker-desktop/")
+            return False
+        else:
+            return False
+    
+    print("✓ Docker is installed and ready.\n")
+    print("Using Docker with Kali Linux provides:")
+    print("  • Pre-configured security tools environment")
+    print("  • Isolation from your host system")
+    print("  • Consistent tool versions across systems\n")
+    
+    print("Navigation: ↑/↓ = Move | ENTER = Select\n")
+    print("  ► Use Docker with Kali Linux container (Recommended)")
+    print("    Skip Docker setup (Install tools directly on host)\n")
+    
+    current = 0
+    while True:
+        try:
+            key = readchar.readkey()
+            
+            if key == readchar.key.UP:
+                current = 0
+            elif key == readchar.key.DOWN:
+                current = 1
+            elif key in (readchar.key.ENTER, "\n", "\r"):
+                if current == 0:
+                    return True
+                else:
+                    return False
+        except KeyboardInterrupt:
+            return False
+
+
+def interactive_provider_menu() -> dict:
+    """Interactive menu for LLM provider configuration."""
+    print_header("LLM PROVIDER CONFIGURATION")
+    
+    providers = [
+        {"name": "Ollama (Local)", "type": "ollama", "desc": "Run models locally, free, no API keys"},
+        {"name": "OpenAI", "type": "openai", "desc": "GPT-4, GPT-3.5-turbo via API"},
+        {"name": "Anthropic", "type": "anthropic", "desc": "Claude models via API"},
+        {"name": "Groq", "type": "groq", "desc": "Fast inference for open models"},
+        {"name": "Custom OpenAI-compatible", "type": "custom", "desc": "vLLM, LM Studio, etc."},
+    ]
+    
+    current = 0
+    while True:
+        print_header("SELECT LLM PROVIDER")
+        print("Navigation: ↑/↓ = Move | ENTER = Select\n")
+        
+        for i, provider in enumerate(providers):
+            cursor = "► " if i == current else "  "
+            name_color = "\033[96m" if i == current else "\033[0m"
+            reset = "\033[0m"
+            print(f"{cursor}{name_color}{provider['name']:<30} {provider['desc']}{reset}")
+        
+        try:
+            key = readchar.readkey()
+            
+            if key == readchar.key.UP:
+                current = max(0, current - 1)
+            elif key == readchar.key.DOWN:
+                current = min(len(providers) - 1, current + 1)
+            elif key in (readchar.key.ENTER, "\n", "\r"):
+                selected = providers[current]
+                
+                if selected["type"] == "ollama":
+                    return configure_ollama()
+                elif selected["type"] in ("openai", "anthropic", "groq"):
+                    return configure_api_provider(selected)
+                elif selected["type"] == "custom":
+                    return configure_custom_provider()
+        except KeyboardInterrupt:
+            print("\n\nSetup cancelled.")
+            sys.exit(0)
+
+
+def get_ollama_models() -> list[str]:
+    """Get list of installed Ollama models."""
+    try:
+        result = subprocess.run(
+            ["ollama", "list"],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+        if result.returncode == 0:
+            lines = result.stdout.strip().split("\n")[1:]  # Skip header
+            models = []
+            for line in lines:
+                if line.strip():
+                    model_name = line.split()[0].split(":")[0]
+                    models.append(model_name)
+            return models
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        pass
+    return []
+
+
+def pull_ollama_model(model_name: str) -> bool:
+    """Pull an Ollama model."""
+    print(f"\n[*] Pulling {model_name}... This may take a few minutes.")
+    try:
+        subprocess.run(["ollama", "pull", model_name], check=True)
+        return True
+    except subprocess.CalledProcessError:
+        print(f"[!] Failed to pull {model_name}")
+        return False
+
+
+def configure_ollama() -> dict:
+    """Configure Ollama provider."""
+    print_header("OLLAMA CONFIGURATION")
+    
+    # Check if Ollama is running
+    try:
+        subprocess.run(["curl", "-s", "http://localhost:11434/api/tags"], 
+                      capture_output=True, timeout=2, check=True)
+    except (subprocess.TimeoutExpired, subprocess.CalledProcessError):
+        print("⚠️  Ollama doesn't appear to be running.")
+        print("\nStarting Ollama service...")
+        subprocess.Popen(["ollama", "serve"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        time.sleep(3)
+    
+    # Get available models
+    models = get_ollama_models()
+    
+    # Recommended models for Cyber Agent
+    recommended = ["qwen2.5-coder:7b", "qwen2.5-coder:14b", "qwen2.5-coder:32b", 
+                   "llama3.2:3b", "mistral:7b", "codellama:7b"]
+    
+    if models:
+        print(f"✓ Found {len(models)} installed model(s):\n")
+        for model in models:
+            print(f"  • {model}")
+        print()
+    else:
+        print("⚠️  No Ollama models found installed.\n")
+    
+    print("Recommended models for Cyber Agent (balanced performance/capability):")
+    for i, model in enumerate(recommended[:5]):
+        print(f"  {i+1}. {model}")
+    print()
+    
+    # Menu for model selection
+    while True:
+        print("Choose an option:")
+        print("  1. Select from installed models")
+        print("  2. Install a recommended model")
+        print("  3. Enter custom model name")
+        print("  4. Go back to provider selection\n")
+        
+        choice = input("Enter choice [1-4]: ").strip()
+        
+        if choice == "1":
+            if not models:
+                print("[!] No models installed. Please choose option 2 or 3.\n")
+                continue
+            
+            print("\nAvailable models:")
+            for i, model in enumerate(models):
+                print(f"  {i+1}. {model}")
+            
+            try:
+                idx = int(input("Select model number: ")) - 1
+                if 0 <= idx < len(models):
+                    return {"provider": "ollama", "model": models[idx]}
+            except ValueError:
+                pass
+            print("[!] Invalid selection.\n")
+        
+        elif choice == "2":
+            print("\nInstalling recommended model...")
+            for i, model in enumerate(recommended[:5]):
+                print(f"  {i+1}. {model}")
+            
+            try:
+                idx = int(input("Select model to install: ")) - 1
+                if 0 <= idx < len(recommended):
+                    if pull_ollama_model(recommended[idx]):
+                        return {"provider": "ollama", "model": recommended[idx]}
+            except ValueError:
+                pass
+            print("[!] Invalid selection.\n")
+        
+        elif choice == "3":
+            model_name = input("Enter model name (e.g., qwen2.5-coder:7b): ").strip()
+            if model_name:
+                # Ask if they want to pull it
+                pull_choice = input(f"Pull {model_name} now? [Y/n]: ").strip().lower()
+                if pull_choice != "n":
+                    if pull_ollama_model(model_name):
+                        return {"provider": "ollama", "model": model_name}
+                return {"provider": "ollama", "model": model_name}
+            print("[!] Invalid model name.\n")
+        
+        elif choice == "4":
+            return interactive_provider_menu()
+
+
+def configure_api_provider(provider_info: dict) -> dict:
+    """Configure cloud API provider."""
+    print_header(f"{provider_info['name']} CONFIGURATION")
+    
+    api_key_var = {
+        "openai": "OPENAI_API_KEY",
+        "anthropic": "ANTHROPIC_API_KEY",
+        "groq": "GROQ_API_KEY"
+    }.get(provider_info["type"], "API_KEY")
+    
+    print(f"To use {provider_info['name']}, you need an API key.\n")
+    print(f"Get your API key from:")
+    if provider_info["type"] == "openai":
+        print("  https://platform.openai.com/api-keys\n")
+    elif provider_info["type"] == "anthropic":
+        print("  https://console.anthropic.com/settings/keys\n")
+    elif provider_info["type"] == "groq":
+        print("  https://console.groq.com/keys\n")
+    
+    api_key = input(f"Enter your {provider_info['name']} API key: ").strip()
+    
+    if not api_key:
+        print("[!] API key required. Returning to provider selection.\n")
+        time.sleep(1)
+        return interactive_provider_menu()
+    
+    # Get available models for this provider
+    models = get_provider_models(provider_info["type"], api_key)
+    
+    if models:
+        print(f"\n✓ Connected! Available models:\n")
+        for i, model in enumerate(models[:10]):  # Show first 10
+            print(f"  {i+1}. {model}")
+        if len(models) > 10:
+            print(f"  ... and {len(models) - 10} more")
+        
+        try:
+            idx = int(input(f"\nSelect model (1-{min(10, len(models))}): ")) - 1
+            if 0 <= idx < len(models):
+                return {
+                    "provider": provider_info["type"],
+                    "api_key": api_key,
+                    "model": models[idx]
+                }
+        except ValueError:
+            pass
+    
+    # Default model if selection fails
+    default_models = {
+        "openai": "gpt-4o-mini",
+        "anthropic": "claude-3-5-sonnet-20241022",
+        "groq": "llama-3.3-70b-versatile"
+    }
+    default = default_models.get(provider_info["type"], "default-model")
+    print(f"\nUsing default model: {default}")
+    return {
+        "provider": provider_info["type"],
+        "api_key": api_key,
+        "model": default
+    }
+
+
+def get_provider_models(provider: str, api_key: str) -> list[str]:
+    """Fetch available models from provider."""
+    import requests
+    
+    try:
+        if provider == "openai":
+            response = requests.get(
+                "https://api.openai.com/v1/models",
+                headers={"Authorization": f"Bearer {api_key}"},
+                timeout=5
+            )
+            if response.status_code == 200:
+                data = response.json()
+                return [m["id"] for m in data.get("data", []) if "gpt" in m["id"]]
+        
+        elif provider == "anthropic":
+            # Anthropic doesn't have a simple models endpoint, use known models
+            return ["claude-3-5-sonnet-20241022", "claude-3-opus-20240229", 
+                    "claude-3-haiku-20240307"]
+        
+        elif provider == "groq":
+            response = requests.get(
+                "https://api.groq.com/openai/v1/models",
+                headers={"Authorization": f"Bearer {api_key}"},
+                timeout=5
+            )
+            if response.status_code == 200:
+                data = response.json()
+                return [m["id"] for m in data.get("data", [])]
+    
+    except Exception as e:
+        print(f"[!] Could not fetch models: {e}")
+    
+    return []
+
+
+def configure_custom_provider() -> dict:
+    """Configure custom OpenAI-compatible provider."""
+    print_header("CUSTOM PROVIDER CONFIGURATION")
+    
+    base_url = input("Enter base URL (e.g., http://localhost:11434/v1): ").strip()
+    
+    if not base_url:
+        print("[!] Base URL required. Returning to provider selection.\n")
+        time.sleep(1)
+        return interactive_provider_menu()
+    
+    has_key = input("Does this provider require an API key? [y/N]: ").strip().lower()
+    api_key = ""
+    if has_key == "y":
+        api_key = input("Enter API key: ").strip()
+    
+    model = input("Enter model name to use: ").strip()
+    
+    if not model:
+        print("[!] Model name required. Returning to provider selection.\n")
+        time.sleep(1)
+        return interactive_provider_menu()
+    
+    return {
+        "provider": "custom",
+        "base_url": base_url,
+        "api_key": api_key,
+        "model": model
+    }
+
+
+# =============================================================================
 # OS DETECTION
 # =============================================================================
 
@@ -291,7 +748,8 @@ def get_missing_tools(tools: list[ToolInfo]) -> list[ToolInfo]:
 
 def generate_install_command(tool: ToolInfo, os_type: str, package_manager: str | None) -> str:
     """Generate the installation command for a tool on the current OS."""
-    if package_manager and tool.name in tool.package_names.get(os_type, []):
+    # Check if we have a package name for this OS
+    if package_manager and os_type in tool.package_names:
         package = tool.package_names[os_type]
         if package_manager == "apt":
             return f"sudo apt update && sudo apt install -y {package}"
@@ -381,93 +839,210 @@ docker run -it --rm \\
 
 
 # =============================================================================
+# INSTALL TOOLS FUNCTION
+# =============================================================================
+
+def install_selected_tools(tools_to_install: list[ToolInfo], os_type: str, package_manager: str | None) -> bool:
+    """Install the selected tools."""
+    if not tools_to_install:
+        print("\n[+] No new tools to install.")
+        return True
+    
+    print_header("INSTALLING SELECTED TOOLS")
+    print(f"Installing {len(tools_to_install)} tool(s)...\n")
+    
+    successful = 0
+    failed = 0
+    
+    for i, tool in enumerate(tools_to_install, 1):
+        cmd = generate_install_command(tool, os_type, package_manager)
+        print(f"[{i}/{len(tools_to_install)}] Installing {tool.name}...")
+        print(f"    Command: {cmd}")
+        
+        try:
+            if cmd.startswith("sudo") or "|" in cmd or cmd.startswith("curl"):
+                subprocess.run(cmd, shell=True, check=True, timeout=300)
+            elif "go install" in cmd or "cargo install" in cmd:
+                subprocess.run(cmd, shell=True, check=True, timeout=300)
+            else:
+                parts = cmd.split()
+                subprocess.run(parts, check=True, timeout=300)
+            
+            print(f"    ✓ Success!\n")
+            successful += 1
+        except subprocess.TimeoutExpired:
+            print(f"    ✗ Timeout during installation\n")
+            failed += 1
+        except subprocess.CalledProcessError as e:
+            print(f"    ✗ Failed: {e}\n")
+            failed += 1
+        except Exception as e:
+            print(f"    ✗ Error: {e}\n")
+            failed += 1
+    
+    print(f"\nInstallation Summary: {successful} succeeded, {failed} failed")
+    return failed == 0
+
+
+def save_config(config_data: dict):
+    """Save configuration to .env file."""
+    env_file = Path(".env")
+    env_content = ""
+    
+    if env_file.exists():
+        env_content = env_file.read_text()
+    
+    # Update or add configuration
+    if config_data.get("provider"):
+        provider_line = f"LLM_PROVIDER={config_data['provider']}\n"
+        if "LLM_PROVIDER=" in env_content:
+            env_content = "\n".join(
+                line if not line.startswith("LLM_PROVIDER=") else provider_line.rstrip()
+                for line in env_content.split("\n")
+            )
+        else:
+            env_content += provider_line
+    
+    if config_data.get("model"):
+        model_line = f"LLM_MODEL={config_data['model']}\n"
+        if "LLM_MODEL=" in env_content:
+            env_content = "\n".join(
+                line if not line.startswith("LLM_MODEL=") else model_line.rstrip()
+                for line in env_content.split("\n")
+            )
+        else:
+            env_content += model_line
+    
+    if config_data.get("api_key"):
+        if config_data["provider"] == "openai":
+            key_line = f"OPENAI_API_KEY={config_data['api_key']}\n"
+            if "OPENAI_API_KEY=" in env_content:
+                env_content = "\n".join(
+                    line if not line.startswith("OPENAI_API_KEY=") else key_line.rstrip()
+                    for line in env_content.split("\n")
+                )
+            else:
+                env_content += key_line
+        elif config_data["provider"] == "anthropic":
+            key_line = f"ANTHROPIC_API_KEY={config_data['api_key']}\n"
+            if "ANTHROPIC_API_KEY=" in env_content:
+                env_content = "\n".join(
+                    line if not line.startswith("ANTHROPIC_API_KEY=") else key_line.rstrip()
+                    for line in env_content.split("\n")
+                )
+            else:
+                env_content += key_line
+        elif config_data["provider"] == "groq":
+            key_line = f"GROQ_API_KEY={config_data['api_key']}\n"
+            if "GROQ_API_KEY=" in env_content:
+                env_content = "\n".join(
+                    line if not line.startswith("GROQ_API_KEY=") else key_line.rstrip()
+                    for line in env_content.split("\n")
+                )
+            else:
+                env_content += key_line
+    
+    if config_data.get("base_url"):
+        url_line = f"LLM_BASE_URL={config_data['base_url']}\n"
+        if "LLM_BASE_URL=" in env_content:
+            env_content = "\n".join(
+                line if not line.startswith("LLM_BASE_URL=") else url_line.rstrip()
+                for line in env_content.split("\n")
+            )
+        else:
+            env_content += url_line
+    
+    env_file.write_text(env_content)
+    print(f"\n[+] Configuration saved to {env_file}")
+
+
+def print_welcome_message(config: dict):
+    """Print a welcome message after setup completion."""
+    print_header("SETUP COMPLETE! 🎉")
+    
+    print("Cyber Agent is now ready to use!\n")
+    print("Configuration Summary:")
+    print(f"  • LLM Provider: {config.get('provider', 'Not configured')}")
+    print(f"  • Model: {config.get('model', 'Not configured')}")
+    if config.get('provider') == 'ollama':
+        print(f"  • Mode: Local (no API key required)")
+    elif config.get('api_key'):
+        print(f"  • Mode: Cloud API (API key configured)")
+    print()
+    
+    print("Quick Start Guide:")
+    print("  1. Activate your virtual environment (if using one):")
+    print("     source venv/bin/activate\n")
+    print("  2. Launch Cyber Agent:")
+    print("     python cli/main.py\n")
+    print("  3. Try these commands:")
+    print("     /help          - Show all available commands")
+    print("     /hack          - Enter offensive security mode")
+    print("     /scope         - View engagement scope")
+    print("     /tools         - List available tools\n")
+    
+    print("Safety Reminder:")
+    print("  • Always ensure you have written authorization before testing")
+    print("  • Review RULES_OF_ENGAGEMENT.md before starting")
+    print("  • Use /hack mode only on authorized targets\n")
+    
+    print("=" * 70)
+    print("Happy (ethical) hacking! 🔒")
+    print("=" * 70 + "\n")
+
+
+# =============================================================================
 # MAIN INSTALLER
 # =============================================================================
 
 def main():
-    """Main installer function."""
-    print("=" * 60)
-    print("Cyber Agent - Smart Installer")
-    print("=" * 60)
+    """Main installer function with interactive menus."""
+    clear_screen()
+    print("\n" + "=" * 70)
+    print("  CYBER AGENT - INTERACTIVE SETUP WIZARD")
+    print("=" * 70)
+    print("\nThis wizard will guide you through:")
+    print("  1. Selecting security tools to install")
+    print("  2. Configuring Docker/Kali container (optional)")
+    print("  3. Setting up your LLM provider")
+    print("\nPress ENTER to begin...")
+    input()
     
-    # Detect OS
+    # Step 1: Detect OS
     os_type, package_manager = detect_os()
     print(f"\n[*] Detected OS: {os_type}")
     print(f"[*] Package manager: {package_manager or 'None detected'}")
+    time.sleep(1)
     
-    # Check for missing tools
-    print("\n[*] Checking for installed tools...")
-    missing_tools = get_missing_tools(TOOL_INVENTORY)
+    # Step 2: Interactive tool selection menu
+    tools_to_install = interactive_tool_menu(TOOL_INVENTORY)
     
-    if not missing_tools:
-        print("[+] All security tools are already installed!")
-        print("\nYou can start using Cyber Agent right away.")
-        return
-    
-    print(f"\n[!] Found {len(missing_tools)} missing tools:")
-    for tool in missing_tools:
-        root_marker = " [requires root]" if tool.requires_root else ""
-        print(f"  - {tool.name}: {tool.description}{root_marker}")
-    
-    # Ask user if they want to install
-    print("\n" + "=" * 60)
-    choice = input("Install missing tools now? [Y/n]: ").strip().lower()
-    
-    if choice in ("", "y", "yes"):
-        print("\n[*] Generating installation commands...")
-        
-        for tool in missing_tools:
-            cmd = generate_install_command(tool, os_type, package_manager)
-            print(f"\n  {tool.name}:")
-            print(f"    {cmd}")
-            
-            # Ask to run this specific command
-            if tool.requires_root and "sudo" not in cmd:
-                print(f"    [!] This tool requires root privileges")
-            
-            run_choice = input(f"    Run this command now? [Y/n]: ").strip().lower()
-            if run_choice in ("", "y", "yes"):
-                try:
-                    # Split command for subprocess
-                    if cmd.startswith("sudo"):
-                        # For sudo commands, we need to run in shell
-                        subprocess.run(cmd, shell=True, check=True)
-                    elif "go install" in cmd or "cargo install" in cmd:
-                        # For go/cargo installs, run in shell
-                        subprocess.run(cmd, shell=True, check=True)
-                    else:
-                        parts = cmd.split()
-                        subprocess.run(parts, check=True)
-                    print(f"    [+] Installation successful!")
-                except subprocess.CalledProcessError as e:
-                    print(f"    [!] Installation failed: {e}")
-                except Exception as e:
-                    print(f"    [!] Error: {e}")
-    
-    # Offer Docker alternative
-    print("\n" + "=" * 60)
-    print("\nAlternative: Run inside a pre-configured Kali Linux Docker container?")
-    print("This ensures all tools are present without polluting your host OS.")
-    
-    if check_docker_installed():
-        docker_choice = input("Set up Kali Docker container? [y/N]: ").strip().lower()
-        if docker_choice in ("y", "yes"):
-            success = setup_kali_container()
-            if success:
-                print("\n[+] Docker setup complete!")
-                print("[*] Run './run_in_kali.sh' to start Cyber Agent in Kali container")
+    # Install selected tools
+    if tools_to_install:
+        install_selected_tools(tools_to_install, os_type, package_manager)
     else:
-        print("[!] Docker is not installed or not running")
-        print("[*] Install Docker from https://docs.docker.com/get-docker/")
+        print("\n[+] All selected tools are already installed!")
     
-    print("\n" + "=" * 60)
-    print("\nInstallation complete!")
-    print("\nNext steps:")
-    print("1. Copy config.yaml.example to config.yaml and edit it")
-    print("2. Set up your .env file with API keys")
-    print("3. Create and sign your RULES_OF_ENGAGEMENT.md file")
-    print("4. Run: cyber-agent")
-    print("\n" + "=" * 60)
+    time.sleep(2)
+    
+    # Step 3: Docker/Kali container setup
+    use_docker = interactive_docker_menu()
+    if use_docker:
+        print_header("SETTING UP DOCKER KALI CONTAINER")
+        if setup_kali_container():
+            print("\n[+] Docker container setup complete!")
+            print("[*] You can run './run_in_kali.sh' to start Cyber Agent in Kali")
+        time.sleep(2)
+    
+    # Step 4: LLM Provider Configuration
+    llm_config = interactive_provider_menu()
+    
+    # Save configuration
+    if llm_config:
+        save_config(llm_config)
+    
+    # Step 5: Welcome message
+    print_welcome_message(llm_config)
 
 
 if __name__ == "__main__":
