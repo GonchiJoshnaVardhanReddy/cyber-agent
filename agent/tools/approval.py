@@ -42,14 +42,14 @@ class ApprovalPolicy:
             return False, f"error: {e}"
 
 
-def cli_approval_callback(prompt_fn: Callable[[str], str]) -> ApprovalCallback:
+def cli_approval_callback(prompt_fn: Callable[[str, bool], str]) -> ApprovalCallback:
     """Build an approval callback that uses a sync prompt function (the CLI's input()).
 
-    prompt_fn is called with the rendered prompt and returns "yes" / "no" / "always".
+    prompt_fn is called with the rendered prompt and dangerous flag, returns "yes" / "no" / "always".
     """
     async def callback(tool_name: str, args: dict, dangerous: bool) -> tuple[bool, str]:
         prompt = _format_approval_prompt(tool_name, args, dangerous)
-        response = prompt_fn(prompt).strip().lower()
+        response = prompt_fn(prompt, dangerous).strip().lower()
         if response in ("yes", "y", "1", "true"):
             return True, "operator"
         if response == "always":

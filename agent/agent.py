@@ -29,6 +29,7 @@ from .tools.web import WEB_TOOLS
 from .tools.fileops import FILEOPS_TOOLS
 from .tools.codeexec import CODE_EXEC_TOOLS
 from .tools.search import SEARCH_TOOLS
+from .tools.offensive import OFFENSIVE_TOOLS
 from .tools.memory_ops import _make_memory_tools
 from .tools.planning import PlanManager, _make_planning_tools
 from .tools.reporting import _make_reporting_tools
@@ -67,6 +68,11 @@ execute tools to achieve objectives within an authorized scope.
 7. APPROVAL: Some tools require human approval. When approval is requested, the
    operator will approve or deny. Respect denials.
 
+8. MODE AWARENESS: 
+   - NORMAL MODE: Use general tools (file ops, web search, code execution, basic recon)
+   - HACK MODE (/hack): Use offensive security tools (nmap, masscan, amass, nikto, sqlmap, etc.)
+   - Only use offensive tools when explicitly in hack mode with authorized scope
+
 # CURRENT ENGAGEMENT (Rules of Engagement)
 
 {roe_summary}
@@ -81,11 +87,21 @@ You have access to the following tools. Each tool is scope-checked and may
 require approval. Use them strategically — do not call a tool unless you have a
 specific hypothesis you're testing or a clear task to accomplish.
 
+## Normal Mode Tools (Always Available)
 - Recon: recon_nmap, recon_dns, recon_whois
 - Web: http_request, web_crawl
 - File ops: file_read, file_write, file_list (sandboxed to ./workspace)
 - Code execution: code_execute_python, code_execute_bash, code_execute_powershell
 - Search: web_search, cve_search
+
+## Hack Mode Tools (Only in /hack mode with authorized scope)
+- Network Scanners: offensive_nmap, offensive_masscan, offensive_rustscan, offensive_naabu
+- OSINT: offensive_amass, offensive_theharvester, offensive_shodan
+- Subdomain Enum: offensive_subfinder, offensive_assetfinder
+- Web Vuln Scanners: offensive_nikto, offensive_nuclei, offensive_ffuf, offensive_gobuster
+- Exploitation: offensive_sqlmap (requires explicit approval)
+
+## Memory & Planning Tools
 - Memory: memory_record_host, memory_record_service, memory_record_finding,
   memory_record_lesson, memory_lookup_lesson, memory_add_hypothesis
 - Planning: plan_create, plan_update_task, plan_view
@@ -100,6 +116,7 @@ specific hypothesis you're testing or a clear task to accomplish.
   the hypothesis).
 - Prefer passive recon (DNS, WHOIS, certificate transparency) before active
   recon (nmap, HTTP).
+- In HACK MODE, follow the pipeline: Passive Recon → Active Scan → Hypothesis → Verification → Report
 - When in doubt, ask the operator for clarification rather than guessing.
 - At the end of an engagement, call report_generate to produce the final report.
 """
@@ -147,9 +164,15 @@ class CyberAgent:
 
     def _register_tools(self) -> None:
         """Register all built-in tools."""
-        # Static tool lists
-        for tool in RECON_TOOLS + WEB_TOOLS + FILEOPS_TOOLS + CODE_EXEC_TOOLS + SEARCH_TOOLS:
+        # Static tool lists - Normal mode tools
+        normal_tools = RECON_TOOLS + WEB_TOOLS + FILEOPS_TOOLS + CODE_EXEC_TOOLS + SEARCH_TOOLS
+        for tool in normal_tools:
             self.registry.register(tool)
+        
+        # Offensive tools (only available in hack mode - enforced by mode manager)
+        for tool in OFFENSIVE_TOOLS:
+            self.registry.register(tool)
+        
         # Tools that need memory bound at construction
         for tool in _make_memory_tools(self.memory):
             self.registry.register(tool)

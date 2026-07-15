@@ -1,0 +1,2 @@
+[console_scripts]
+cyber-agent = cli.main:app
