@@ -205,7 +205,12 @@ def make_provider_from_config(config_dict: dict) -> tuple[LLMProvider, str]:
     if provider_name == "ollama":
         base_url = os.getenv("OPENAI_BASE_URL", agent_cfg.get("base_url", "http://localhost:11434/v1"))
         api_key = os.getenv("OPENAI_API_KEY", "ollama")  # Ollama doesn't require a real key
-        default_model = agent_cfg.get("model", "llama3.1")
+        default_model = agent_cfg.get("model", "")
+        if not default_model:
+            raise RuntimeError(
+                "Model name required for Ollama. Set agent.model in config.yaml "
+                "(e.g., 'llama3.1', 'mistral', 'qwen2.5'). Run 'ollama pull <model>' first."
+            )
     elif provider_name == "openrouter":
         base_url = os.getenv("OPENAI_BASE_URL", agent_cfg.get("base_url", "https://openrouter.ai/api/v1"))
         api_key = os.getenv("OPENAI_API_KEY", "")

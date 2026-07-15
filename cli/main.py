@@ -6,8 +6,7 @@ Usage:
     cyber-agent --run "objective"  # single objective, then exit
     
 Commands:
-    /hack <target> <scope>     # Enter hack mode with target and scope
-    /scope                     # Show current scope
+    /mode                      # Switch between normal and hack mode
     /memory                    # Show world memory graph state
     /report                    # Generate findings report
     /status                    # Show agent status
@@ -150,8 +149,7 @@ def _show_help():
     help_table.add_column("Example", style="dim", no_wrap=True)
     
     commands = [
-        ("/hack", "Enter hack mode for offensive operations", "/hack example.com 192.168.1.0/24"),
-        ("/scope", "Display current engagement scope", "/scope"),
+        ("/mode", "Switch between normal and hack mode", "/mode hack <target> <scope>"),
         ("/memory", "View graph memory state", "/memory"),
         ("/report", "Generate findings report", "/report"),
         ("/status", "Show detailed agent status", "/status"),
@@ -165,6 +163,10 @@ def _show_help():
     
     console.print()
     console.print(Panel(help_table, title="📖 Command Reference", border_style="blue"))
+    console.print()
+    console.print("[bold cyan]Mode Switching:[/bold cyan]")
+    console.print("  • [green]/mode normal[/green] - Return to normal assistant mode")
+    console.print("  • [red]/mode hack <target> <scope>[/red] - Enter offensive hacking mode")
     console.print()
 
 
@@ -200,13 +202,13 @@ def _show_tools_list(agent):
 
 
 def _show_scope_display(agent):
-    """Display current scope in a formatted way."""
+    """Display current scope in a formatted way (called when in hack mode)."""
     if hasattr(agent, 'mode_manager') and agent.mode_manager.is_in_hack_mode():
         session = agent.mode_manager.get_hack_session()
         if session:
-            scope_table = Table(title=f"Engagement Scope: {session.target}", box=None)
-            scope_table.add_column("Type", style="cyan", no_wrap=True)
-            scope_table.add_column("Items", style="white")
+            scope_table = Table(title=f"🎯 Engagement Scope: {session.target}", box=None)
+            scope_table.add_column("Property", style="cyan", no_wrap=True)
+            scope_table.add_column("Value", style="white")
             
             scope_table.add_row("Target", session.target)
             scope_table.add_row("Type", session.engagement_type)
@@ -219,12 +221,58 @@ def _show_scope_display(agent):
                     "Excluded",
                     "\n".join(f"[red]{item}[/red]" for item in session.excluded_targets[:5])
                 )
+            scope_table.add_row("Recon Stage", session.recon_stage.value)
+            scope_table.add_row("Test Stage", session.test_stage.value)
+            scope_table.add_row("Hypotheses", str(len(session.hypotheses)))
+            scope_table.add_row("Findings", str(len(session.findings)))
             
             console.print()
-            console.print(Panel(scope_table, title="🎯 Current Scope", border_style="blue"))
+            console.print(Panel(scope_table, title="Current Engagement", border_style="red"))
             return
     
-    console.print("[yellow]Not in hack mode. Use /hack <target> <scope> to start an engagement.[/yellow]")
+    # Not in hack mode - show message
+    console.print()
+    console.print(Panel(
+        "[yellow]Not in hack mode.[/yellow]\n\n"
+        "Use [red]/mode hack <target> <scope>[/red] to enter offensive mode.\n"
+        "Example: [dim]/mode hack example.com example.com,www.example.com,192.168.1.0/24[/dim]",
+        title="ℹ️ Mode Information",
+        border_style="yellow",
+    ))
+
+
+def _show_mode_status(agent):
+    """Display current mode and allow switching."""
+    console.print()
+    
+    if hasattr(agent, 'mode_manager') and agent.mode_manager.is_in_hack_mode():
+        session = agent.mode_manager.get_hack_session()
+        if session:
+            # Show hack mode status
+            mode_panel = Panel(
+                f"[bold red]🔴 HACK MODE ACTIVE[/bold red]\n\n"
+                f"Target: [cyan]{session.target}[/cyan]\n"
+                f"Scope: {len(session.scope)} items\n"
+                f"Engagement Type: {session.engagement_type}\n\n"
+                f"[dim]Offensive security tools enabled. Stay within scope.[/dim]",
+                title="Current Mode",
+                border_style="red",
+            )
+            console.print(mode_panel)
+            console.print()
+            console.print("[dim]To exit hack mode, use: /mode normal[/dim]")
+            return
+    
+    # Show normal mode status
+    mode_panel = Panel(
+        f"[bold blue]🔵 NORMAL MODE[/bold blue]\n\n"
+        f"General assistant capabilities active.\n"
+        f"Available: file ops, web search, code execution, basic recon\n\n"
+        f"[dim]To enter hack mode: /mode hack <target> <scope>[/dim]",
+        title="Current Mode",
+        border_style="blue",
+    )
+    console.print(mode_panel)
 
 
 def _show_memory_summary(agent):
@@ -348,45 +396,101 @@ def main(
             elif cmd in ("status", ":s", "/status"):
                 console.print(Panel(_create_status_table(agent), title="Agent Status", border_style="cyan"))
                 continue
-            elif cmd == "/hack":
-                if len(cmd_parts) < 3:
+            elif cmd == "/mode":
+                # Handle mode switching: /mode hack <target> <scope> or /mode normal
+                if len(cmd_parts) < 2:
+                    _show_mode_status(agent)
+                    continue
+                
+                mode_action = cmd_parts[1].lower()
+                
+                if mode_action == "normal":
+                    # Exit hack mode
+                    try:
+                        from agent.modes import ModeManager
+                        if not hasattr(agent, 'mode_manager'):
+                            agent.mode_manager = ModeManager()
+                        
+                        if agent.mode_manager.is_in_hack_mode():
+                            agent.mode_manager.exit_hack_mode(user="operator")
+                            console.print(Panel(
+                                "[green]✓ Exited hack mode[/green]\n\n"
+                                "Returned to normal assistant mode.",
+                                title="🔵 NORMAL MODE",
+                                border_style="blue",
+                            ))
+                        else:
+                            console.print(Panel(
+                                "[yellow]Already in normal mode.[/yellow]",
+                                title="Mode Status",
+                                border_style="yellow",
+                            ))
+                    except Exception as e:
+                        console.print(Panel(
+                            f"[red]Error exiting hack mode:[/red] {e}",
+                            title="Error",
+                            border_style="red",
+                        ))
+                
+                elif mode_action == "hack":
+                    # Enter hack mode with target and scope
+                    if len(cmd_parts) < 4:
+                        console.print(Panel(
+                            "[red]/mode hack requires target and scope.[/red]\n\n"
+                            "[dim]Usage: /mode hack <target> <scope1>,<scope2>,...</dim>\n\n"
+                            "Example: [cyan]/mode hack example.com example.com,www.example.com,192.168.1.0/24[/cyan]",
+                            title="Usage Error",
+                            border_style="red",
+                        ))
+                        continue
+                    
+                    target = cmd_parts[2]
+                    scope_items = cmd_parts[3].split(",") if len(cmd_parts) > 3 else []
+                    
+                    try:
+                        from agent.modes import ModeManager, AgentMode
+                        if not hasattr(agent, 'mode_manager'):
+                            agent.mode_manager = ModeManager()
+                        
+                        session = agent.mode_manager.switch_to_hack_mode(
+                            target=target,
+                            scope=scope_items,
+                            engagement_type="bug_bounty"
+                        )
+                        
+                        console.print(Panel(
+                            f"[green]✓ Hack mode activated[/green]\n\n"
+                            f"Target: [cyan]{target}[/cyan]\n"
+                            f"Scope: {len(scope_items)} items\n"
+                            f"\n[dim]Offensive tools are now available. Remember to stay within scope.[/dim]",
+                            title="🔴 HACK MODE ACTIVE",
+                            border_style="red",
+                        ))
+                    except Exception as e:
+                        console.print(Panel(
+                            f"[red]Error entering hack mode:[/red] {e}",
+                            title="Error",
+                            border_style="red",
+                        ))
+                else:
                     console.print(Panel(
-                        "[red]/hack requires target and scope.[/red]\n\n"
-                        "[dim]Usage: /hack <target> <scope1>,<scope2>,...</dim>",
+                        f"[red]Unknown mode action:[/red] {mode_action}\n\n"
+                        "[dim]Use: /mode hack <target> <scope> | /mode normal[/dim]",
                         title="Usage Error",
                         border_style="red",
                     ))
-                    continue
-                
-                target = cmd_parts[1]
-                scope_items = cmd_parts[2].split(",") if len(cmd_parts) > 2 else []
-                
-                try:
-                    from agent.modes import ModeManager, AgentMode
-                    if not hasattr(agent, 'mode_manager'):
-                        agent.mode_manager = ModeManager()
-                    
-                    session = agent.mode_manager.switch_to_hack_mode(
-                        target=target,
-                        scope=scope_items,
-                        engagement_type="bug_bounty"
-                    )
-                    
-                    console.print(Panel(
-                        f"[green]✓ Hack mode activated[/green]\n\n"
-                        f"Target: [cyan]{target}[/cyan]\n"
-                        f"Scope: {len(scope_items)} items\n"
-                        f"\n[dim]Offensive tools are now available. Remember to stay within scope.[/dim]",
-                        title="🔴 HACK MODE ACTIVE",
-                        border_style="red",
-                    ))
-                except Exception as e:
-                    console.print(Panel(
-                        f"[red]Error entering hack mode:[/red] {e}",
-                        title="Error",
-                        border_style="red",
-                    ))
                 continue
+            
+            # Legacy /hack command (deprecated but still supported)
+            elif cmd == "/hack":
+                console.print(Panel(
+                    "[yellow]Deprecated:[/yellow] Use [cyan]/mode hack <target> <scope>[/cyan] instead.\n\n"
+                    "Example: [dim]/mode hack example.com example.com,www.example.com[/dim]",
+                    title="Command Updated",
+                    border_style="yellow",
+                ))
+                continue
+            
             elif cmd == "/scope":
                 _show_scope_display(agent)
                 continue
