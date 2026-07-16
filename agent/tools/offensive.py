@@ -642,8 +642,8 @@ def _nuclei_handler(target: str, templates: str = "",
             try:
                 import json
                 findings.append(json.loads(line))
-            except:
-                pass
+            except json.JSONDecodeError:
+                pass  # Skip malformed JSON lines
     
     return ToolResult(
         success=rc == 0 or findings,
@@ -702,8 +702,8 @@ def _ffuf_handler(url: str, wordlist: str = "",
             try:
                 import json
                 results.append(json.loads(line))
-            except:
-                pass
+            except json.JSONDecodeError:
+                pass  # Skip malformed JSON lines
     
     found_paths = [r.get('url', '') for r in results if r.get('status') in [200, 301, 302]]
     
