@@ -443,6 +443,123 @@ def pull_ollama_model(model_name: str) -> bool:
         return False
 
 
+def interactive_ollama_model_menu(installed_models: list[str], recommended: list[str]) -> dict:
+    """Interactive menu for selecting/pulling Ollama models.
+    
+    Navigation:
+        UP/DOWN arrows: Move selection
+        SPACE: Select/deselect model to pull
+        ENTER: Confirm selection
+        P: Pull selected model
+        C: Enter custom model name
+        B: Go back to provider selection
+    """
+    current_index = 0
+    selected_for_pull = set()
+    
+    while True:
+        print_header("OLLAMA MODEL SELECTION")
+        print("Navigation: ↑/↓ = Move | SPACE = Select to pull | ENTER = Use model")
+        print("            P = Pull selected | C = Custom model | B = Back\n")
+        
+        if installed_models:
+            print("\033[92m═══ INSTALLED MODELS ═══\033[0m\n")
+            for i, model in enumerate(installed_models):
+                cursor = "► " if i == current_index else "  "
+                print(f"{cursor}\033[96m{model}\033[0m")
+            print()
+        
+        print("\033[93m═══ RECOMMENDED MODELS (for Cyber Agent) ═══\033[0m\n")
+        rec_start_idx = len(installed_models)
+        for i, model in enumerate(recommended):
+            actual_idx = rec_start_idx + i
+            cursor = "► " if actual_idx == current_index else "  "
+            
+            is_installed = model.split(":")[0] in [m.split(":")[0] for m in installed_models]
+            is_selected = i in selected_for_pull
+            
+            if is_installed:
+                status = "✓"
+                color = "\033[92m"  # Green
+            elif is_selected:
+                status = "☑"
+                color = "\033[94m"  # Blue
+            else:
+                status = "☐"
+                color = "\033[90m"  # Gray
+            
+            reset = "\033[0m"
+            print(f"{cursor}{color}{status} {model}{reset}")
+        
+        print(f"\n\nCursor: {current_index}/{len(installed_models) + len(recommended) - 1}")
+        print(f"Selected to pull: {len(selected_for_pull)} model(s)")
+        print("\nPress ENTER to use highlighted model, SPACE to select for pulling")
+        
+        try:
+            key = readchar.readkey()
+            
+            if key == readchar.key.UP:
+                current_index = max(0, current_index - 1)
+            elif key == readchar.key.DOWN:
+                current_index = min(len(installed_models) + len(recommended) - 1, current_index + 1)
+            elif key == " ":
+                # Toggle selection for pulling (only for recommended, not installed)
+                if current_index >= len(installed_models):
+                    rec_idx = current_index - len(installed_models)
+                    if rec_idx in selected_for_pull:
+                        selected_for_pull.remove(rec_idx)
+                    else:
+                        selected_for_pull.add(rec_idx)
+            elif key in (readchar.key.ENTER, "\n", "\r"):
+                # Use the currently highlighted model
+                if current_index < len(installed_models):
+                    return {"provider": "ollama", "model": installed_models[current_index]}
+                else:
+                    rec_idx = current_index - len(installed_models)
+                    model_to_use = recommended[rec_idx]
+                    # Check if it's installed, if not pull it
+                    if model_to_use not in installed_models:
+                        print(f"\n[*] Pulling {model_to_use}...")
+                        if pull_ollama_model(model_to_use):
+                            return {"provider": "ollama", "model": model_to_use}
+                        else:
+                            print("[!] Failed to pull model. Try another.")
+                            time.sleep(2)
+                    else:
+                        return {"provider": "ollama", "model": model_to_use}
+            elif key.lower() == 'p':
+                # Pull selected models
+                if selected_for_pull:
+                    print("\n[*] Pulling selected models...")
+                    for rec_idx in selected_for_pull:
+                        if pull_ollama_model(recommended[rec_idx]):
+                            print(f"[+] {recommended[rec_idx]} pulled successfully!")
+                    selected_for_pull.clear()
+                    # Refresh installed models
+                    installed_models = get_ollama_models()
+                    current_index = 0
+                    input("\nPress ENTER to continue...")
+            elif key.lower() == 'c':
+                # Custom model entry
+                clear_screen()
+                print_header("CUSTOM OLLAMA MODEL")
+                model_name = input("Enter model name (e.g., qwen2.5-coder:7b): ").strip()
+                if model_name:
+                    pull_choice = input(f"\nPull {model_name} now? [Y/n]: ").strip().lower()
+                    if pull_choice != "n":
+                        if pull_ollama_model(model_name):
+                            return {"provider": "ollama", "model": model_name}
+                    return {"provider": "ollama", "model": model_name}
+            elif key.lower() == 'b':
+                return interactive_provider_menu()
+        except KeyboardInterrupt:
+            print("\n\nSetup cancelled.")
+            sys.exit(0)
+    
+    # Fallback if no models and user doesn't enter custom
+    return interactive_provider_menu()
+
+
 def configure_ollama() -> dict:
     """Configure Ollama provider."""
     print_header("OLLAMA CONFIGURATION")
@@ -460,81 +577,33 @@ def configure_ollama() -> dict:
     # Get available models
     models = get_ollama_models()
     
-    # Recommended models for Cyber Agent
-    recommended = ["qwen2.5-coder:7b", "qwen2.5-coder:14b", "qwen2.5-coder:32b", 
-                   "llama3.2:3b", "mistral:7b", "codellama:7b"]
+    # Recommended models for Cyber Agent (7B to 32B range as requested)
+    recommended = [
+        "qwen2.5-coder:7b",
+        "qwen2.5-coder:14b", 
+        "qwen2.5-coder:32b",
+        "llama3.2:3b",
+        "llama3.1:8b",
+        "mistral:7b",
+        "codellama:7b",
+        "deepseek-coder:6.7b",
+        "phi3:mini"
+    ]
     
     if models:
-        print(f"✓ Found {len(models)} installed model(s):\n")
-        for model in models:
-            print(f"  • {model}")
-        print()
+        print(f"\033[92m✓ Found {len(models)} installed model(s)\033[0m\n")
     else:
-        print("⚠️  No Ollama models found installed.\n")
+        print("\033[93m⚠️  No Ollama models found installed.\033[0m\n")
+        print("Don't worry! You can pull recommended models below.\n")
     
-    print("Recommended models for Cyber Agent (balanced performance/capability):")
-    for i, model in enumerate(recommended[:5]):
-        print(f"  {i+1}. {model}")
-    print()
+    time.sleep(1)
     
-    # Menu for model selection
-    while True:
-        print("Choose an option:")
-        print("  1. Select from installed models")
-        print("  2. Install a recommended model")
-        print("  3. Enter custom model name")
-        print("  4. Go back to provider selection\n")
-        
-        choice = input("Enter choice [1-4]: ").strip()
-        
-        if choice == "1":
-            if not models:
-                print("[!] No models installed. Please choose option 2 or 3.\n")
-                continue
-            
-            print("\nAvailable models:")
-            for i, model in enumerate(models):
-                print(f"  {i+1}. {model}")
-            
-            try:
-                idx = int(input("Select model number: ")) - 1
-                if 0 <= idx < len(models):
-                    return {"provider": "ollama", "model": models[idx]}
-            except ValueError:
-                pass
-            print("[!] Invalid selection.\n")
-        
-        elif choice == "2":
-            print("\nInstalling recommended model...")
-            for i, model in enumerate(recommended[:5]):
-                print(f"  {i+1}. {model}")
-            
-            try:
-                idx = int(input("Select model to install: ")) - 1
-                if 0 <= idx < len(recommended):
-                    if pull_ollama_model(recommended[idx]):
-                        return {"provider": "ollama", "model": recommended[idx]}
-            except ValueError:
-                pass
-            print("[!] Invalid selection.\n")
-        
-        elif choice == "3":
-            model_name = input("Enter model name (e.g., qwen2.5-coder:7b): ").strip()
-            if model_name:
-                # Ask if they want to pull it
-                pull_choice = input(f"Pull {model_name} now? [Y/n]: ").strip().lower()
-                if pull_choice != "n":
-                    if pull_ollama_model(model_name):
-                        return {"provider": "ollama", "model": model_name}
-                return {"provider": "ollama", "model": model_name}
-            print("[!] Invalid model name.\n")
-        
-        elif choice == "4":
-            return interactive_provider_menu()
+    # Launch interactive model selection menu
+    return interactive_ollama_model_menu(models, recommended)
 
 
 def configure_api_provider(provider_info: dict) -> dict:
-    """Configure cloud API provider."""
+    """Configure cloud API provider with interactive model selection."""
     print_header(f"{provider_info['name']} CONFIGURATION")
     
     api_key_var = {
@@ -563,35 +632,94 @@ def configure_api_provider(provider_info: dict) -> dict:
     models = get_provider_models(provider_info["type"], api_key)
     
     if models:
-        print(f"\n✓ Connected! Available models:\n")
-        for i, model in enumerate(models[:10]):  # Show first 10
-            print(f"  {i+1}. {model}")
-        if len(models) > 10:
-            print(f"  ... and {len(models) - 10} more")
-        
-        try:
-            idx = int(input(f"\nSelect model (1-{min(10, len(models))}): ")) - 1
-            if 0 <= idx < len(models):
-                return {
-                    "provider": provider_info["type"],
-                    "api_key": api_key,
-                    "model": models[idx]
-                }
-        except ValueError:
-            pass
+        print(f"\n\033[92m✓ Connected! Found {len(models)} model(s)\033[0m\n")
+        time.sleep(1)
+        # Launch interactive model selection
+        return _interactive_api_model_menu(provider_info, api_key, models)
     
-    # Default model if selection fails
+    # If no models fetched, use defaults
+    print("\n[!] Could not fetch models. Using default model.")
     default_models = {
         "openai": "gpt-4o-mini",
         "anthropic": "claude-3-5-sonnet-20241022",
         "groq": "llama-3.3-70b-versatile"
     }
     default = default_models.get(provider_info["type"], "default-model")
-    print(f"\nUsing default model: {default}")
+    print(f"Default model: {default}")
     return {
         "provider": provider_info["type"],
         "api_key": api_key,
         "model": default
+    }
+
+
+def _interactive_api_model_menu(provider_info: dict, api_key: str, models: list[str]) -> dict:
+    """Interactive menu for selecting a model from API provider.
+    
+    Navigation:
+        UP/DOWN arrows: Move selection
+        ENTER: Confirm selection
+        C: Enter custom model name
+        B: Go back
+    """
+    current_index = 0
+    
+    while True:
+        print_header(f"{provider_info['name'].upper()} MODEL SELECTION")
+        print("Navigation: ↑/↓ = Move | ENTER = Select | C = Custom model | B = Back\n")
+        
+        # Display models
+        for i, model in enumerate(models[:20]):  # Show up to 20 models
+            cursor = "► " if i == current_index else "  "
+            color = "\033[96m" if i == current_index else "\033[0m"
+            reset = "\033[0m"
+            print(f"{cursor}{color}{model}{reset}")
+        
+        if len(models) > 20:
+            print(f"\n... and {len(models) - 20} more models")
+        
+        print(f"\n\nCursor: {current_index}/{min(len(models), 20) - 1}")
+        print("Press ENTER to select the highlighted model")
+        
+        try:
+            key = readchar.readkey()
+            
+            if key == readchar.key.UP:
+                current_index = max(0, current_index - 1)
+            elif key == readchar.key.DOWN:
+                current_index = min(min(len(models), 20) - 1, current_index + 1)
+            elif key in (readchar.key.ENTER, "\n", "\r"):
+                return {
+                    "provider": provider_info["type"],
+                    "api_key": api_key,
+                    "model": models[current_index]
+                }
+            elif key.lower() == 'c':
+                clear_screen()
+                print_header("CUSTOM MODEL NAME")
+                custom_model = input("Enter model name: ").strip()
+                if custom_model:
+                    return {
+                        "provider": provider_info["type"],
+                        "api_key": api_key,
+                        "model": custom_model
+                    }
+            elif key.lower() == 'b':
+                return interactive_provider_menu()
+        except KeyboardInterrupt:
+            print("\n\nSetup cancelled.")
+            sys.exit(0)
+    
+    # Fallback
+    default_models = {
+        "openai": "gpt-4o-mini",
+        "anthropic": "claude-3-5-sonnet-20241022",
+        "groq": "llama-3.3-70b-versatile"
+    }
+    return {
+        "provider": provider_info["type"],
+        "api_key": api_key,
+        "model": default_models.get(provider_info["type"], "default-model")
     }
 
 
